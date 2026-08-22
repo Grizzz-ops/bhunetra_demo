@@ -8,10 +8,10 @@ in output/triggers.json, fuses it with change_pct into a confidence_score,
 then flips status to PENDING_REVIEW ready for Pair B's POST /trigger
 endpoint.
 
-road_proximity_score is temporarily disabled (hardcoded to 0.0, no live
-Overpass calls and no local-file dependency) -- see extract_roads.py /
-score_triggers.py git history for the road-proximity implementation once
-a valid local roads.geojson is available again.
+road_access_score is computed from real_data/roads.geojson (extracted
+locally via extract_roads.py from an OSM .pbf extract -- no live API
+calls, no Overpass). See its docstring below for what this measures and
+what it deliberately does not.
 
 Also runs an MMDR Act legality-determination layer per trigger against a
 MOCK permit registry (real_data/mock_permits.json) -- see that file's
@@ -20,14 +20,18 @@ unimplemented placeholders; see their docstrings for why.
 """
 import json
 import math
+import os
 
+import geopandas as gpd
 import numpy as np
 import rasterio
 from dateutil.parser import parse as parse_date
+from shapely.geometry import Point
 
 TRIGGERS_FILE = "output/triggers.json"
 OUTPUT_FILE   = "output/triggers_scored.json"
 PERMITS_FILE  = "real_data/mock_permits.json"
+ROADS_FILE    = "real_data/roads.geojson"
 
 BEFORE_VV_FILE = "real_data/before_vv.tif"
 AFTER_VV_FILE  = "real_data/after_vv.tif"
@@ -57,7 +61,8 @@ MINERAL_RATIO_EPS = 1e-6
 
 EARTH_METERS_PER_DEG_LAT = 111320.0  # good enough approximation for a small AOI
 
-ROAD_PROXIMITY_SCORE_DISABLED = 0.0   # hardcoded -- signal is off for now
+ROAD_ACCESS_FULL_SCORE_M = 500     # road_access_score = 1.0 within this distance
+ROAD_ACCESS_ZERO_SCORE_M = 1500    # road_access_score = 0.0 at/beyond this distance
 
 CHANGE_PCT_WEIGHT = 0.65
 SAR_SCORE_WEIGHT  = 0.35
@@ -203,6 +208,64 @@ def pixel_area_m2(transform, lat):
     return pixel_width_m * pixel_height_m
 
 
+# ---- road access (static OSM infrastructure proximity, NOT vehicle activity)
+def load_roads():
+    """real_data/roads.geojson, extracted locally by extract_roads.py from
+    an OSM .pbf (no live API calls). Returns None if the file doesn't
+    exist yet -- callers must treat that as "unavailable", not "no roads
+    found"; those are different claims."""
+    if not os.path.exists(ROADS_FILE):
+        return None
+    return gpd.read_file(ROADS_FILE)
+
+
+def nearest_road(lat, lon, roads_gdf):
+    """Distance (meters) and highway= type of the nearest road to (lat, lon).
+
+    Degree-to-meter conversion uses the SAME simple local-latitude scaling
+    as pixel_area_m2 (not a full metric-CRS reprojection) -- roads_gdf's
+    geometry distance() is computed in raw degree space, then scaled by the
+    average of the lat/lon meters-per-degree factors at this point. That's
+    an approximation, not geodesically exact, but consistent with how
+    disturbance_area_m2 already handles this elsewhere in this file.
+    """
+    if roads_gdf is None or len(roads_gdf) == 0:
+        return None, None
+
+    point = Point(lon, lat)
+    distances_deg = roads_gdf.geometry.distance(point)
+    nearest_idx = distances_deg.idxmin()
+    dist_deg = distances_deg.loc[nearest_idx]
+
+    meters_per_deg_lon = EARTH_METERS_PER_DEG_LAT * math.cos(math.radians(lat))
+    meters_per_deg = (EARTH_METERS_PER_DEG_LAT + meters_per_deg_lon) / 2
+    dist_m = round(dist_deg * meters_per_deg, 1)
+
+    road_type = roads_gdf.loc[nearest_idx].get("highway")
+    return dist_m, road_type
+
+
+def road_access_score(dist_m):
+    """1.0 within ROAD_ACCESS_FULL_SCORE_M, linearly down to 0.0 at
+    ROAD_ACCESS_ZERO_SCORE_M, 0.0 beyond that.
+
+    This measures STATIC road infrastructure proximity from OpenStreetMap
+    -- it says a road exists near this location, nothing about whether any
+    vehicle has actually used it recently. Real-time vehicle movement would
+    need GPS/RFID-tracked transit-pass data from state e-permit systems
+    (mandated under state mining rules for mineral-carrying vehicles) --
+    documented future scope, not implemented here.
+    """
+    if dist_m is None:
+        return None
+    if dist_m <= ROAD_ACCESS_FULL_SCORE_M:
+        return 1.0
+    if dist_m >= ROAD_ACCESS_ZERO_SCORE_M:
+        return 0.0
+    span = ROAD_ACCESS_ZERO_SCORE_M - ROAD_ACCESS_FULL_SCORE_M
+    return round(1.0 - (dist_m - ROAD_ACCESS_FULL_SCORE_M) / span, 3)
+
+
 # ---- MMDR Act legality-determination layer --------------------------------
 def load_permits():
     with open(PERMITS_FILE) as f:
@@ -320,6 +383,11 @@ def score_triggers(triggers):
     before_vv, before_transform = load_vv_band(BEFORE_VV_FILE)
     after_vv, after_transform   = load_vv_band(AFTER_VV_FILE)
     leases = load_permits()
+    roads = load_roads()
+    if roads is None:
+        print(f"  [warn] {ROADS_FILE} not found -- road_access_score, "
+              f"nearest_road_distance_m, nearest_road_type will be null "
+              f"for all triggers. Run extract_roads.py first.")
 
     after_red, area_transform = load_band_and_transform(AFTER_RED_FILE)
     after_nir, _  = load_band_and_transform(AFTER_NIR_FILE)
@@ -335,7 +403,10 @@ def score_triggers(triggers):
             t["lat"], t["lon"], before_vv, before_transform, after_vv, after_transform
         )
 
-        t["road_proximity_score"] = ROAD_PROXIMITY_SCORE_DISABLED
+        dist_m, road_type = nearest_road(t["lat"], t["lon"], roads)
+        t["nearest_road_distance_m"] = dist_m
+        t["nearest_road_type"] = road_type
+        t["road_access_score"] = road_access_score(dist_m)
         t["sar_change_score"] = sar_score
         t["sar_mean_abs_change_db"] = mean_abs_change_db
 
@@ -384,7 +455,9 @@ def main():
               f"dispatch={la['dispatch_check']['value']:15s}  |  "
               f"legality={t['legality_flag']:19s}  |  "
               f"area={t['disturbance_area_m2']:7.1f}m2  |  {mi_str}  |  "
-              f"ntl_delta={t['ntl_delta']}")
+              f"ntl_delta={t['ntl_delta']}  |  "
+              f"road={t['nearest_road_distance_m']}m ({t['nearest_road_type']}, "
+              f"access={t['road_access_score']})")
 
     if unavailable:
         print(f"\n{len(unavailable)} trigger(s) with SAR_UNAVAILABLE "

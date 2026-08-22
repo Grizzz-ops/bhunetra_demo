@@ -7,7 +7,7 @@
     "change_pct": 40.4,
     "area_px": 476,
     "boundary_status": "boundary_violation",
-    "detected_at": "2026-08-22T05:34:19.302105+00:00",
+    "detected_at": "2026-08-22T10:33:50.629761+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -19,7 +19,7 @@
     "change_pct": 35.8,
     "area_px": 23,
     "boundary_status": "boundary_violation",
-    "detected_at": "2026-08-22T05:34:19.302105+00:00",
+    "detected_at": "2026-08-22T10:33:50.629761+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -31,7 +31,7 @@
     "change_pct": 35.1,
     "area_px": 95,
     "boundary_status": "boundary_violation",
-    "detected_at": "2026-08-22T05:34:19.303106+00:00",
+    "detected_at": "2026-08-22T10:33:50.631385+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -43,7 +43,7 @@
     "change_pct": 48.4,
     "area_px": 898,
     "boundary_status": "within_lease_expansion",
-    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "detected_at": "2026-08-22T10:33:50.632392+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -55,7 +55,7 @@
     "change_pct": 49.6,
     "area_px": 552,
     "boundary_status": "boundary_violation",
-    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "detected_at": "2026-08-22T10:33:50.632392+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -67,7 +67,7 @@
     "change_pct": 37.7,
     "area_px": 40,
     "boundary_status": "within_lease_expansion",
-    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "detected_at": "2026-08-22T10:33:50.632392+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -79,7 +79,7 @@
     "change_pct": 31.9,
     "area_px": 77,
     "boundary_status": "within_lease_expansion",
-    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "detected_at": "2026-08-22T10:33:50.633401+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -91,7 +91,7 @@
     "change_pct": 31.0,
     "area_px": 102,
     "boundary_status": "within_lease_expansion",
-    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "detected_at": "2026-08-22T10:33:50.633401+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   },
@@ -103,7 +103,7 @@
     "change_pct": 32.4,
     "area_px": 22,
     "boundary_status": "within_lease_expansion",
-    "detected_at": "2026-08-22T05:34:19.305106+00:00",
+    "detected_at": "2026-08-22T10:33:50.633401+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_SCORING"
   }

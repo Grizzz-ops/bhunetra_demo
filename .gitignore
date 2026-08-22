@@ -1,7 +1,6 @@
 .env
- HEAD
-raw_osm/ 
+raw_osm/
+*.osm.pbf
 
 venv/
 __pycache__/
- 35cbaf1031f05763e41bc26d87912bb5c0956255

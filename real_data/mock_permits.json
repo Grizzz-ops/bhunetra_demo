@@ -1,0 +1,20 @@
+{
+  "_disclaimer": "MOCK DATA. This illustrates the schema a real state DMG / e-permit registry API would return (e.g. Chhattisgarh DMG, India's e-permit / MSTC transit-pass systems). It is NOT real NMDC or government lease data -- replace this file with a live API integration before any production use.",
+  "leases": [
+    {
+      "lease_id": "ML-CG-BAILADILA-14",
+      "holder": "Demo Lease Holder",
+      "status": "ACTIVE",
+      "valid_from": "2015-04-01",
+      "valid_until": "2030-03-31",
+      "permitted_mineral": "IRON_ORE",
+      "approved_annual_volume_tonnes": 10000000,
+      "transit_passes": [
+        {"date": "2020-01-01", "count": 42},
+        {"date": "2020-01-15", "count": 38},
+        {"date": "2024-01-05", "count": 51},
+        {"date": "2024-01-20", "count": 45}
+      ]
+    }
+  ]
+}

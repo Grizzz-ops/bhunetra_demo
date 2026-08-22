@@ -1,0 +1,110 @@
+[
+  {
+    "trigger_id": "MSS-D4D2AA",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66335,
+    "lon": 81.22491,
+    "change_pct": 40.4,
+    "area_px": 476,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-21T17:01:24.743986+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-C1FF79",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66434,
+    "lon": 81.22703,
+    "change_pct": 35.8,
+    "area_px": 23,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-21T17:01:24.744986+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-7B3F18",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66257,
+    "lon": 81.2264,
+    "change_pct": 35.1,
+    "area_px": 95,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-21T17:01:24.745984+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-AB4283",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65989,
+    "lon": 81.23108,
+    "change_pct": 48.4,
+    "area_px": 898,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-21T17:01:24.745984+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-E0A54D",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65699,
+    "lon": 81.22695,
+    "change_pct": 49.6,
+    "area_px": 552,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-21T17:01:24.745984+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-7F6648",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65524,
+    "lon": 81.22982,
+    "change_pct": 37.7,
+    "area_px": 40,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-21T17:01:24.745984+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-D168C3",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65509,
+    "lon": 81.23275,
+    "change_pct": 31.9,
+    "area_px": 77,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-21T17:01:24.745984+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-6E5ACA",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65407,
+    "lon": 81.23258,
+    "change_pct": 31.0,
+    "area_px": 102,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-21T17:01:24.746986+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MSS-7E752B",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65302,
+    "lon": 81.23685,
+    "change_pct": 32.4,
+    "area_px": 22,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-21T17:01:24.746986+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_SCORING"
+  }
+]

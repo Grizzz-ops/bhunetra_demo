@@ -1,0 +1,12 @@
+rasterio
+numpy
+opencv-python-headless
+geopandas
+shapely
+scipy
+openeo
+python-dateutil
+matplotlib
+requests
+python-dotenv
+blackmarblepy

@@ -1,0 +1,416 @@
+[
+  {
+    "trigger_id": "MSS-D4D2AA",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66335,
+    "lon": 81.22491,
+    "change_pct": 40.4,
+    "area_px": 476,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-22T05:34:19.302105+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.296,
+    "sar_mean_abs_change_db": 2.368,
+    "confidence_score": 0.366,
+    "confidence_tier": "WATCHLIST",
+    "disturbance_area_m2": 48454.3,
+    "ntl_delta": 1.078,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "OUTSIDE_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "NO_LEASE_FOUND",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "DATA_UNAVAILABLE",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 2.8138,
+        "ferrous_mineral_ratio": 1.5788
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "POTENTIAL_VIOLATION"
+  },
+  {
+    "trigger_id": "MSS-C1FF79",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66434,
+    "lon": 81.22703,
+    "change_pct": 35.8,
+    "area_px": 23,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-22T05:34:19.302105+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.29,
+    "sar_mean_abs_change_db": 2.32,
+    "confidence_score": 0.334,
+    "confidence_tier": "WATCHLIST",
+    "disturbance_area_m2": 2341.3,
+    "ntl_delta": 3.77,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "OUTSIDE_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "NO_LEASE_FOUND",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "DATA_UNAVAILABLE",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 2.6074,
+        "ferrous_mineral_ratio": 1.1835
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "POTENTIAL_VIOLATION"
+  },
+  {
+    "trigger_id": "MSS-7B3F18",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66257,
+    "lon": 81.2264,
+    "change_pct": 35.1,
+    "area_px": 95,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-22T05:34:19.303106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.403,
+    "sar_mean_abs_change_db": 3.226,
+    "confidence_score": 0.369,
+    "confidence_tier": "WATCHLIST",
+    "disturbance_area_m2": 9670.5,
+    "ntl_delta": 5.046,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "OUTSIDE_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "NO_LEASE_FOUND",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "DATA_UNAVAILABLE",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 3.4888,
+        "ferrous_mineral_ratio": 1.7234
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "POTENTIAL_VIOLATION"
+  },
+  {
+    "trigger_id": "MSS-AB4283",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65989,
+    "lon": 81.23108,
+    "change_pct": 48.4,
+    "area_px": 898,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.547,
+    "sar_mean_abs_change_db": 4.38,
+    "confidence_score": 0.506,
+    "confidence_tier": "OFFICER_REVIEW",
+    "disturbance_area_m2": 91413.6,
+    "ntl_delta": 5.077,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "WITHIN_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "VALID",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "PASSES_PRESENT",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 2.2768,
+        "ferrous_mineral_ratio": 3.5606
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "APPEARS_COMPLIANT"
+  },
+  {
+    "trigger_id": "MSS-E0A54D",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65699,
+    "lon": 81.22695,
+    "change_pct": 49.6,
+    "area_px": 552,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.516,
+    "sar_mean_abs_change_db": 4.13,
+    "confidence_score": 0.503,
+    "confidence_tier": "OFFICER_REVIEW",
+    "disturbance_area_m2": 56192.8,
+    "ntl_delta": 9.247,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "OUTSIDE_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "NO_LEASE_FOUND",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "DATA_UNAVAILABLE",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 3.59,
+        "ferrous_mineral_ratio": 2.077
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "POTENTIAL_VIOLATION"
+  },
+  {
+    "trigger_id": "MSS-7F6648",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65524,
+    "lon": 81.22982,
+    "change_pct": 37.7,
+    "area_px": 40,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.235,
+    "sar_mean_abs_change_db": 1.884,
+    "confidence_score": 0.327,
+    "confidence_tier": "WATCHLIST",
+    "disturbance_area_m2": 4072.0,
+    "ntl_delta": 5.121,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "WITHIN_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "VALID",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "PASSES_PRESENT",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 4.0748,
+        "ferrous_mineral_ratio": 1.7984
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "APPEARS_COMPLIANT"
+  },
+  {
+    "trigger_id": "MSS-D168C3",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65509,
+    "lon": 81.23275,
+    "change_pct": 31.9,
+    "area_px": 77,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.306,
+    "sar_mean_abs_change_db": 2.445,
+    "confidence_score": 0.314,
+    "confidence_tier": "MONITORING_ONLY",
+    "disturbance_area_m2": 7838.6,
+    "ntl_delta": 5.121,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "WITHIN_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "VALID",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "PASSES_PRESENT",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 2.8373,
+        "ferrous_mineral_ratio": 2.3284
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "APPEARS_COMPLIANT"
+  },
+  {
+    "trigger_id": "MSS-6E5ACA",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65407,
+    "lon": 81.23258,
+    "change_pct": 31.0,
+    "area_px": 102,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-22T05:34:19.304106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.26,
+    "sar_mean_abs_change_db": 2.082,
+    "confidence_score": 0.292,
+    "confidence_tier": "MONITORING_ONLY",
+    "disturbance_area_m2": 10383.6,
+    "ntl_delta": 0.297,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "WITHIN_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "VALID",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "PASSES_PRESENT",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 2.7066,
+        "ferrous_mineral_ratio": 4.5075
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "APPEARS_COMPLIANT"
+  },
+  {
+    "trigger_id": "MSS-7E752B",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65302,
+    "lon": 81.23685,
+    "change_pct": 32.4,
+    "area_px": 22,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-22T05:34:19.305106+00:00",
+    "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
+    "status": "PENDING_REVIEW",
+    "road_proximity_score": 0.0,
+    "sar_change_score": 0.328,
+    "sar_mean_abs_change_db": 2.62,
+    "confidence_score": 0.325,
+    "confidence_tier": "WATCHLIST",
+    "disturbance_area_m2": 2239.6,
+    "ntl_delta": 2.802,
+    "legality_assessment": {
+      "spatial_check": {
+        "value": "WITHIN_LEASE",
+        "data_source": "REAL"
+      },
+      "temporal_check": {
+        "value": "VALID",
+        "data_source": "MOCK"
+      },
+      "dispatch_check": {
+        "value": "PASSES_PRESENT",
+        "data_source": "MOCK"
+      },
+      "mineral_check": {
+        "value": "HEURISTIC_ESTIMATE",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      },
+      "mineral_indicator": {
+        "iron_oxide_ratio": 1.7995,
+        "ferrous_mineral_ratio": 2.2634
+      },
+      "volume_check": {
+        "value": "AREA_PROXY_ONLY",
+        "data_source": "DERIVED_FROM_IMAGERY"
+      }
+    },
+    "legality_flag": "APPEARS_COMPLIANT"
+  }
+]

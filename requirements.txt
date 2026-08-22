@@ -1,17 +1,3 @@
-
-rasterio
-numpy
-opencv-python-headless
-geopandas
-shapely
-scipy
-openeo
-python-dateutil
-matplotlib
-requests
-python-dotenv
-blackmarblepy
-=======
 fastapi
 uvicorn
 psycopg2-binary
@@ -19,4 +5,4 @@ sqlalchemy
 pydantic
 python-dotenv
 requests
-
+GeoAlchemy2

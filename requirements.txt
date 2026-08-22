@@ -7,3 +7,4 @@ python-dotenv
 requests
 GeoAlchemy2
 shapely
+apscheduler

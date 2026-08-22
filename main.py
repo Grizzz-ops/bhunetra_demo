@@ -18,6 +18,11 @@ from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import shape, mapping
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from jose import jwt, JWTError
+from passlib.context import CryptContext
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import HTTPException
+
 # ==========================================
 # 1. CONFIGURATION & RAILWAY TRAP FIX
 # ==========================================
@@ -26,10 +31,50 @@ raw_db_url = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost
 if raw_db_url.startswith("postgres://"):
     raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(raw_db_url)
+engine = create_engine(
+    raw_db_url,
+    pool_pre_ping=True,  # Checks if the connection is alive before querying
+    pool_recycle=300     # Automatically refreshes connections every 5 minutes
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+class Lease(Base):
+    __tablename__ = "leases"
+    id              = Column(Integer, primary_key=True, index=True)
+    source          = Column(String)
+    lessee_name     = Column(String)
+    mineral_type    = Column(String)
+    state           = Column(String)
+    district        = Column(String)
+    status          = Column(String, default="UNKNOWN")
+    expiry_date     = Column(DateTime, nullable=True)
+    geometry        = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326))
+
+
+class Officer(Base):
+    __tablename__ = "officers"
+    id              = Column(Integer, primary_key=True, index=True)
+    name            = Column(String, nullable=False)
+    email           = Column(String, unique=True, nullable=False, index=True)
+    password_hash   = Column(String, nullable=False)
+    role            = Column(String, nullable=False)
+    district        = Column(String, nullable=True)
+    state           = Column(String, nullable=True)
+    fcm_token       = Column(String, nullable=True)
+    is_active       = Column(Integer, default=1)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id              = Column(Integer, primary_key=True, index=True)
+    alert_id        = Column(Integer, nullable=False)
+    officer_id      = Column(Integer, nullable=True)
+    previous_status = Column(String, nullable=True)
+    new_status      = Column(String, nullable=True)
+    action          = Column(String, nullable=False)
+    notes           = Column(String, nullable=True)
+    timestamp       = Column(DateTime, default=datetime.utcnow)
 # ==========================================
 # 2. DATABASE MODELS (PostGIS Schema)
 # ==========================================
@@ -110,6 +155,35 @@ def get_db():
     finally:
         db.close()
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+JWT_SECRET = os.getenv("JWT_SECRET", "bhunetra_secret_key_2026")
+JWT_ALGORITHM = "HS256"
+
+def create_token(officer_id: int, role: str, state: str) -> str:
+    payload = {
+        "officer_id": officer_id,
+        "role": role,
+        "state": state or "",
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def get_current_officer(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token. Please log in again."
+        )
 # ==========================================
 # 6. FASTAPI ENDPOINTS
 # ==========================================
@@ -178,6 +252,81 @@ def advance_time(db: Session = Depends(get_db)):
     
     return {"status": "success", "message": "Time-travel activated. SLAs expired and escalated."}
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/v1/auth/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    officer = db.query(Officer).filter(
+        Officer.email == request.email,
+        Officer.is_active == 1
+    ).first()
+
+    if not officer or not pwd_context.verify(
+        request.password, officer.password_hash
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password"
+        )
+
+    token = create_token(
+        officer_id=officer.id,
+        role=officer.role,
+        state=officer.state
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": officer.role,
+        "name": officer.name
+    }
+
+class AlertActionRequest(BaseModel):
+    new_status: str
+    notes: str
+
+@app.patch("/api/v1/alerts/{alert_id}/action")
+def officer_action(
+    alert_id: int,
+    request: AlertActionRequest,
+    db: Session = Depends(get_db),
+    current_officer: dict = Depends(get_current_officer)
+):
+    # Find the alert in database
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    # Remember what status it was before changing
+    previous_status = alert.status
+
+    # Update the status
+    alert.status = request.new_status
+
+    # Write to audit log — permanent record of this action
+    db.add(AuditLog(
+        alert_id=alert_id,
+        officer_id=current_officer["officer_id"],
+        action="STATUS_UPDATED",
+        previous_status=previous_status,
+        new_status=request.new_status,
+        notes=request.notes,
+        timestamp=datetime.utcnow()
+    ))
+
+    db.commit()
+
+    return {
+        "status": "updated",
+        "alert_id": alert_id,
+        "previous_status": previous_status,
+        "new_status": request.new_status,
+        "updated_by": current_officer["officer_id"]
+    }
 # ==========================================
 # 7. LOCAL SERVER RUNNER
 # ==========================================

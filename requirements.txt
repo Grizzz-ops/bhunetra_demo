@@ -8,3 +8,4 @@ requests
 GeoAlchemy2
 shapely
 apscheduler
+python-jose

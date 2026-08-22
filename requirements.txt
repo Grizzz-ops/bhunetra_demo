@@ -10,3 +10,14 @@ matplotlib
 requests
 python-dotenv
 blackmarblepy
+fastapi
+uvicorn
+psycopg2-binary
+sqlalchemy
+pydantic
+GeoAlchemy2
+apscheduler
+python-jose
+passlib
+bcrypt==3.2.2
+python-multipart

@@ -6,3 +6,10 @@ pydantic
 python-dotenv
 requests
 GeoAlchemy2
+shapely
+apscheduler
+python-jose
+passlib
+bcrypt==3.2.2
+geopandas
+python-multipart

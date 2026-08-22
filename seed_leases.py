@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
 
+
 load_dotenv()
 raw_url = os.getenv("DATABASE_URL")
 if raw_url.startswith("postgres://"):

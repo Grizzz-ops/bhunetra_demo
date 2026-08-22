@@ -11,7 +11,7 @@ from typing import Dict, Any
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import from_shape, to_shape
@@ -90,6 +90,9 @@ class Alert(Base):
     
     # PostGIS Spatial Column
     geometry = Column(Geometry(geometry_type='POLYGON', srid=4326))
+    legal_status  = Column(String, default="UNCHECKED")
+    legal_reason  = Column(String, nullable=True)
+    legal_weight  = Column(Float, default=0.0)
 
 # Create tables in Railway if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -184,32 +187,185 @@ def get_current_officer(
             status_code=401,
             detail="Invalid or expired token. Please log in again."
         )
+
+def run_legal_check(centroid_wkt: str, db: Session):
+    """
+    Checks if a detected coordinate is inside
+    any legal lease boundary in our database.
+    
+    centroid_wkt = the center point of the
+    detected mining area, as text coordinates
+    """
+    
+    # Ask PostGIS: is this point inside any lease polygon?
+    # ST_Contains is a PostGIS spatial function
+    # It returns the lease record if found, nothing if not
+    result = db.execute(text("""
+        SELECT 
+            id,
+            source,
+            lessee_name,
+            status,
+            expiry_date
+        FROM leases
+        WHERE ST_Contains(
+            geometry,
+            ST_GeomFromEWKT(:centroid)
+        )
+        LIMIT 1;
+    """), {"centroid": centroid_wkt}).fetchone()
+    
+    # No lease found anywhere near this point
+    if result is None:
+        return {
+            "legal_status": "ILLEGAL",
+            "legal_reason": "No mining lease or licence exists at this coordinate — MMDR Act Section 21 violation",
+            "legal_weight": 1.0
+        }
+    
+    # A lease was found — now check if it's still valid
+    is_expired = (
+        result.status in ["EXPIRED", "CANCELLED", "LAPSED"]
+        or
+        (result.expiry_date and result.expiry_date < datetime.utcnow())
+    )
+    
+    if is_expired:
+        return {
+            "legal_status": "ILLEGAL",
+            "legal_reason": f"Lease held by {result.lessee_name or 'Unknown'} has expired — MMDR Act Section 21 violation",
+            "legal_weight": 0.85
+        }
+    
+    # Lease found but status is UNKNOWN
+    # This happens when data comes from Maus or OSM
+    # which don't have official status information
+    if result.status == "UNKNOWN":
+        return {
+            "legal_status": "SUSPECTED",
+            "legal_reason": f"Mining area found in {result.source} dataset — lease status unverified. Requires IBM MTS confirmation",
+            "legal_weight": 0.60
+        }
+    
+    # All checks passed — this looks like legal mining
+    return {
+        "legal_status": "LEGAL",
+        "legal_reason": f"Valid active lease confirmed — {result.lessee_name or 'Unknown'}",
+        "legal_weight": 0.0
+    }
 # ==========================================
 # 6. FASTAPI ENDPOINTS
 # ==========================================
 
 @app.post("/api/v1/triggers")
 def ingest_trigger(payload: TriggerPayload, db: Session = Depends(get_db)):
-    """Pair A (Data Pipeline) uses this to insert detected anomalies."""
+    """
+    Pair A sends detections here.
+    Now includes automatic legal check before saving.
+    """
     
-    # Convert incoming GeoJSON directly to Shapely shape, then to PostGIS WKB
+    # ─────────────────────────────────────────────
+    # PART 1: Convert Pair A's GeoJSON into
+    # a format PostGIS understands
+    # Same as before — don't change this logic
+    # ─────────────────────────────────────────────
     shapely_geom = shape(payload.geojson_polygon)
     postgis_geom = from_shape(shapely_geom, srid=4326)
     
-    # Set SLA to 48 hours from now
-    deadline = datetime.utcnow() + timedelta(hours=48)
+    # ─────────────────────────────────────────────
+    # PART 2: Get the CENTER POINT of the
+    # detected polygon
+    #
+    # Why center point?
+    # The legal check works best on one specific point
+    # The center of the detected area is the most
+    # representative single point to check
+    # ─────────────────────────────────────────────
+    centroid      = shapely_geom.centroid
+    centroid_ewkt = f"SRID=4326;POINT({centroid.x} {centroid.y})"
+    
+    # ─────────────────────────────────────────────
+    # PART 3: Run the legal check
+    # This calls the function we wrote in Step 2
+    # Returns legal_status, legal_reason, legal_weight
+    # ─────────────────────────────────────────────
+    legal_result  = run_legal_check(centroid_ewkt, db)
+    
+    legal_status  = legal_result["legal_status"]
+    legal_reason  = legal_result["legal_reason"]
+    legal_weight  = legal_result["legal_weight"]
+    
+    # ─────────────────────────────────────────────
+    # PART 4: Calculate final confidence score
+    #
+    # Why combine scores?
+    # Pair A gives us risk_score (satellite signals)
+    # Legal check gives us legal_weight
+    # Combining both gives a more accurate final score
+    #
+    # Formula:
+    # 40% comes from legal check
+    # 60% comes from Pair A's satellite score
+    # ─────────────────────────────────────────────
+    satellite_score  = payload.risk_score / 100.0
+    
+    final_confidence = (
+        0.40 * legal_weight     +
+        0.60 * satellite_score
+    )
+    
+    # ─────────────────────────────────────────────
+    # PART 5: If clearly legal — stop here
+    # Don't create an alert for legal mining
+    # Tell Pair A it was ignored and why
+    # ─────────────────────────────────────────────
+    if legal_status == "LEGAL":
+        return {
+            "status":  "no_alert_raised",
+            "reason":  legal_reason,
+            "message": "Valid lease confirmed — detection filtered out"
+        }
+    
+    # ─────────────────────────────────────────────
+    # PART 6: Save the alert with legal info
+    # Only reaches here if ILLEGAL or SUSPECTED
+    # ─────────────────────────────────────────────
+    deadline  = datetime.utcnow() + timedelta(hours=48)
     
     new_alert = Alert(
-        location_name=payload.location_name,
-        risk_score=payload.risk_score,
-        sla_deadline=deadline,
-        geometry=postgis_geom
+        location_name  = payload.location_name,
+        risk_score     = round(final_confidence * 100, 1),
+        sla_deadline   = deadline,
+        geometry       = postgis_geom,
+        legal_status   = legal_status,
+        legal_reason   = legal_reason,
+        legal_weight   = legal_weight
     )
     db.add(new_alert)
+    db.flush()
+    
+    # ─────────────────────────────────────────────
+    # PART 7: Write to audit log
+    # Permanent record that this trigger was raised
+    # and what the legal check found
+    # ─────────────────────────────────────────────
+    db.add(AuditLog(
+        alert_id   = new_alert.id,
+        action     = "TRIGGER_RAISED",
+        new_status = "PENDING_OFFICER",
+        notes      = f"Legal: {legal_status} | {legal_reason} | Confidence: {round(final_confidence * 100, 1)}%"
+    ))
+    
     db.commit()
     db.refresh(new_alert)
     
-    return {"status": "success", "alert_id": new_alert.id}
+    return {
+        "status":           "alert_raised",
+        "alert_id":         new_alert.id,
+        "legal_status":     legal_status,
+        "legal_reason":     legal_reason,
+        "confidence_score": round(final_confidence * 100, 1)
+    }
 
 @app.get("/api/v1/alerts")
 def get_alerts(db: Session = Depends(get_db)):
@@ -230,7 +386,11 @@ def get_alerts(db: Session = Depends(get_db)):
                 "location_name": alert.location_name,
                 "risk_score": alert.risk_score,
                 "status": alert.status,
-                "sla_deadline": alert.sla_deadline.isoformat()
+                "sla_deadline": alert.sla_deadline.isoformat(),
+                # ADD THESE THREE
+                "legal_status":  alert.legal_status  or "UNCHECKED",
+                "legal_reason":  alert.legal_reason  or "Pending verification",
+                "legal_weight":  alert.legal_weight  or 0.0
             }
         }
         feature_collection["features"].append(feature)
@@ -327,6 +487,60 @@ def officer_action(
         "new_status": request.new_status,
         "updated_by": current_officer["officer_id"]
     }
+
+@app.get("/api/v1/leases")
+def get_lease_boundaries(db: Session = Depends(get_db)):
+    """
+    Returns all lease boundary polygons as GeoJSON.
+    
+    Why GeoJSON?
+    Because Leaflet (Pair C's map library) reads 
+    GeoJSON directly — no conversion needed.
+    
+    Pair C uses this to draw green polygons on 
+    the map showing where mining IS legally allowed.
+    """
+    
+    # Ask database for all lease records
+    # ST_AsGeoJSON converts PostGIS geometry
+    # into standard GeoJSON text that Pair C can use
+    leases = db.execute(text("""
+        SELECT 
+            id,
+            source,
+            lessee_name,
+            mineral_type,
+            status,
+            ST_AsGeoJSON(geometry) as geom_json
+        FROM leases
+        LIMIT 500;
+    """)).fetchall()
+    
+    # Build a GeoJSON FeatureCollection
+    # This is the standard format Leaflet expects
+    feature_collection = {
+        "type": "FeatureCollection",
+        "features": []
+    }
+    
+    import json
+    
+    for lease in leases:
+        feature = {
+            "type": "Feature",
+            "geometry": json.loads(lease.geom_json),
+            "properties": {
+                "id":           lease.id,
+                "source":       lease.source,
+                "lessee_name":  lease.lessee_name,
+                "mineral_type": lease.mineral_type,
+                "status":       lease.status,
+                "layer_type":   "legal_lease_boundary"
+            }
+        }
+        feature_collection["features"].append(feature)
+    
+    return feature_collection
 # ==========================================
 # 7. LOCAL SERVER RUNNER
 # ==========================================

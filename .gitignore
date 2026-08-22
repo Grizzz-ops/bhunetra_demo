@@ -1,2 +1,7 @@
 .env
+ HEAD
 raw_osm/ 
+
+venv/
+__pycache__/
+ 35cbaf1031f05763e41bc26d87912bb5c0956255

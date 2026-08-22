@@ -1,3 +1,4 @@
+
 rasterio
 numpy
 opencv-python-headless
@@ -10,3 +11,12 @@ matplotlib
 requests
 python-dotenv
 blackmarblepy
+=======
+fastapi
+uvicorn
+psycopg2-binary
+sqlalchemy
+pydantic
+python-dotenv
+requests
+

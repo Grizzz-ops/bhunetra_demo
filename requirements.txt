@@ -9,3 +9,4 @@ GeoAlchemy2
 shapely
 apscheduler
 python-jose
+passlib

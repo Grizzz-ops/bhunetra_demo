@@ -22,6 +22,8 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import HTTPException
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
 
 # ==========================================
 # 1. CONFIGURATION & RAILWAY TRAP FIX
@@ -100,11 +102,25 @@ Base.metadata.create_all(bind=engine)
 # ==========================================
 # 3. PYDANTIC SCHEMAS (API Contracts)
 # ==========================================
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+
 class TriggerPayload(BaseModel):
-    """Pair A sends this exactly to POST /api/v1/triggers"""
     location_name: str
-    risk_score: float
-    geojson_polygon: Dict[str, Any]  # The raw GeoJSON geometry object
+    risk_score: float  # Kept for backward compatibility
+    geojson_polygon: dict
+    
+    # NEW WIDENED FIELDS:
+    trigger_id: Optional[str] = None
+    site_id: Optional[int] = None
+    confidence_score: Optional[float] = None
+    confidence_tier: Optional[str] = None
+    boundary_status: Optional[str] = None
+    sar_change_score: Optional[float] = None
+    disturbance_area_m2: Optional[float] = None
+    ntl_delta: Optional[float] = None
+    legality_flag: Optional[str] = None
+    legality_assessment: Optional[Dict[str, Any]] = None
 
 # ==========================================
 # 4. SLA ESCALATION ENGINE (APScheduler)

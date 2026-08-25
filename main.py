@@ -24,6 +24,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+from sqlalchemy import JSON
+from datetime import datetime, timezone, timedelta
 
 # ==========================================
 # 1. CONFIGURATION & RAILWAY TRAP FIX
@@ -77,6 +79,7 @@ class AuditLog(Base):
     action          = Column(String, nullable=False)
     notes           = Column(String, nullable=True)
     timestamp       = Column(DateTime, default=datetime.utcnow)
+
 # ==========================================
 # 2. DATABASE MODELS (PostGIS Schema)
 # ==========================================
@@ -95,6 +98,20 @@ class Alert(Base):
     legal_status  = Column(String, default="UNCHECKED")
     legal_reason  = Column(String, nullable=True)
     legal_weight  = Column(Float, default=0.0)
+
+    # -------------------------------------------------------------
+    # NEW WIDENED COLUMNS (Add these fields):
+    # -------------------------------------------------------------
+    trigger_id = Column(String, nullable=True)
+    site_id = Column(Integer, nullable=True)
+    confidence_score = Column(Float, nullable=True)
+    confidence_tier = Column(String, nullable=True)
+    boundary_status = Column(String, nullable=True)
+    sar_change_score = Column(Float, nullable=True)
+    disturbance_area_m2 = Column(Float, nullable=True)
+    ntl_delta = Column(Float, nullable=True)
+    legality_flag = Column(String, nullable=True)
+    legality_assessment = Column(JSON, nullable=True)
 
 # Create tables in Railway if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -346,20 +363,31 @@ def ingest_trigger(payload: TriggerPayload, db: Session = Depends(get_db)):
     # PART 6: Save the alert with legal info
     # Only reaches here if ILLEGAL or SUSPECTED
     # ─────────────────────────────────────────────
-    deadline  = datetime.utcnow() + timedelta(hours=48)
+    deadline = datetime.now(timezone.utc) + timedelta(hours=48)
     
     new_alert = Alert(
-        location_name  = payload.location_name,
-        risk_score     = round(final_confidence * 100, 1),
-        sla_deadline   = deadline,
-        geometry       = postgis_geom,
-        legal_status   = legal_status,
-        legal_reason   = legal_reason,
-        legal_weight   = legal_weight
+        location_name       = payload.location_name,
+        risk_score          = round(final_confidence * 100, 1),
+        sla_deadline        = deadline,
+        geometry            = postgis_geom,
+        legal_status        = legal_status,
+        legal_reason        = legal_reason,
+        legal_weight        = legal_weight,
+
+        # Pass widened payload fields into PostgreSQL
+        trigger_id          = payload.trigger_id,
+        site_id             = payload.site_id,
+        confidence_score    = payload.confidence_score or round(final_confidence * 100, 1),
+        confidence_tier     = payload.confidence_tier,
+        boundary_status     = payload.boundary_status,
+        sar_change_score    = payload.sar_change_score,
+        disturbance_area_m2 = payload.disturbance_area_m2,
+        ntl_delta           = payload.ntl_delta,
+        legality_flag       = payload.legality_flag or legal_status,
+        legality_assessment = payload.legality_assessment
     )
     db.add(new_alert)
     db.flush()
-    
     # ─────────────────────────────────────────────
     # PART 7: Write to audit log
     # Permanent record that this trigger was raised

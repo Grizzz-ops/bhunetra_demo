@@ -23,12 +23,19 @@ engine = create_engine(DATABASE_URL)
 #   - site_id is Column(String) on the model, NOT Integer. The original
 #     version of this script had it as INTEGER, which would silently make
 #     ingest_trigger() fail (or truncate) the moment a non-numeric site_id
-#     like "AOI-07-BALAGHAT" came through.
+#     like "AOI-07-BALAGHAT" came through. Worse: that original version had
+#     already been run against Railway before this fix, so the column
+#     existed as INTEGER already -- ADD COLUMN IF NOT EXISTS is a no-op on
+#     an existing column, it does NOT change its type. Confirmed live: a
+#     real POST with site_id="AOI-07-BALAGHAT" failed with
+#     psycopg2.errors.InvalidTextRepresentation until the ALTER COLUMN
+#     TYPE below actually ran.
 #   - change_pct and sar_mean_abs_change_db were missing entirely below —
 #     the model has 12 new columns, this only added 10.
 MIGRATION_SQL = """
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_id VARCHAR;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS site_id VARCHAR;
+ALTER TABLE alerts ALTER COLUMN site_id TYPE VARCHAR USING site_id::VARCHAR;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS change_pct FLOAT;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS confidence_score FLOAT;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS confidence_tier VARCHAR;

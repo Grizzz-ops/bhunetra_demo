@@ -1,9 +1,16 @@
 import os
+import sys
+from pathlib import Path
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
 
+# This script lives in db/, but the Officer model and Base metadata are
+# defined in main.py at the repo root -- add the repo root to sys.path so
+# `from main import ...` below still resolves after the move.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 load_dotenv()
 raw_url = os.getenv("DATABASE_URL")
@@ -53,9 +60,9 @@ for o in officers_data:
         db.add(Officer(**o))
 
 db.commit()
-print("✅ Officers created successfully")
+print("Officers created successfully")
 print("-----------------------------------")
-print("Field Officer → field@bhunetra.demo / field123")
-print("DGM Admin     → dgm@bhunetra.demo   / dgm123")
-print("IBM HQ        → ibm@bhunetra.demo   / ibm123")
+print("Field Officer -> field@bhunetra.demo / field123")
+print("DGM Admin     -> dgm@bhunetra.demo   / dgm123")
+print("IBM HQ        -> ibm@bhunetra.demo   / ibm123")
 db.close()

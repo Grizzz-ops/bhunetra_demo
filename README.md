@@ -1,29 +1,47 @@
 # BhuNetra — Detection Engine (Member 1)
 
 ## What's in here
-- `make_sample_data.py` — generates synthetic before/after imagery + a lease
-  boundary, so you can test the pipeline today, before real Sentinel-2 data
-  is downloaded.
-- `detection.py` — the real detection engine: NDVI change detection,
-  blob clustering, lease-boundary check, trigger JSON output.
-- `validate.py` — computes Precision / Recall / F1 against a manually
-  labeled ground-truth CSV (this is what answers the judges' "needs
-  technical validation" feedback).
+- `main.py` — the FastAPI + PostGIS backend (the API Railway deploys).
+- `pipeline/` — the detection → scoring → ingest chain, plus the imagery
+  scripts that feed it:
+  - `pipeline/make_sample_data.py` — generates synthetic before/after
+    imagery + a lease boundary, so you can test the pipeline today, before
+    real Sentinel-2 data is downloaded.
+  - `pipeline/detection.py` — the real detection engine: NDVI change
+    detection, blob clustering, lease-boundary check, trigger JSON output.
+  - `pipeline/score_triggers.py` — fuses SAR/NTL/road/legality signals
+    into each trigger's `confidence_score`.
+  - `pipeline/seed_backend.py` — POSTs scored triggers to the live API
+    (this is what the daily GitHub Actions job runs).
+  - `pipeline/validate.py` — computes Precision / Recall / F1 against a
+    manually labeled ground-truth CSV (this is what answers the judges'
+    "needs technical validation" feedback).
+- `db/` — one-off database scripts: migrations (`migrate.py`), the
+  `alerts.status` CHECK constraint (`add_status_constraint.py`), column
+  verification, and seed data (`seed_leases.py`, `load_manual_lease.py`).
+  - `db/cluster_sites.py` — DBSCAN groups alerts into physical mining
+    sites (`cluster_id`), backing `GET /api/v1/sites`. Re-run after
+    ingesting new triggers — new alerts start with `cluster_id` NULL and
+    are invisible to that endpoint until this has run.
+  - `db/generate_briefs.py` — batch-pregenerates the LLM officer briefing
+    for every alert so the demo never depends on a live model call.
+    **Run this again right before the Wed 21:00 freeze**, and after any
+    new ingestion.
 - `output/triggers.json` — pipeline output, ready to hand to Member 2
   (Verification/Scoring).
 
 ## Quickstart
 ```bash
 pip install -r requirements.txt
-python3 make_sample_data.py     # only needed once, or to regenerate test data
-python3 detection.py            # runs detection, writes output/triggers.json
-python3 validate.py             # prints Precision/Recall/F1
+python3 pipeline/make_sample_data.py     # only needed once, or to regenerate test data
+python3 pipeline/detection.py            # runs detection, writes output/triggers.json
+python3 pipeline/validate.py             # prints Precision/Recall/F1
 ```
 
 ## Swapping in REAL Sentinel-2 data
 1. Download Sentinel-2 L2A imagery for your demo site, two dates (before/after).
 2. Extract Band 4 (Red) and Band 8 (NIR) as GeoTIFFs for each date.
-3. Replace the 4 file paths at the top of `detection.py`:
+3. Replace the 4 file paths at the top of `pipeline/detection.py`:
    ```python
    BEFORE_RED = "your_real_data/before_B04.tif"
    BEFORE_NIR = "your_real_data/before_B08.tif"
@@ -33,7 +51,7 @@ python3 validate.py             # prints Precision/Recall/F1
 4. Replace `sample_data/lease_boundaries.geojson` with your real lease
    boundary polygon (from IBM/state DMG data, or manually digitized from
    Bhuvan/Google Earth for the demo — see the earlier chat for that path).
-5. Run `detection.py` again — no other code changes needed.
+5. Run `pipeline/detection.py` again — no other code changes needed.
 
 ## Re-validating on real data
 Once you run detection on real imagery:
@@ -45,9 +63,9 @@ Once you run detection on real imagery:
    format) — `TRUE` for real disturbance, `FALSE` for false positives.
 4. If you can see real disturbance in the imagery that your pipeline
    *didn't* flag, add its coordinates as a `TRUE` row too, with a
-   `trigger_id` that doesn't match anything detected — `validate.py`
+   `trigger_id` that doesn't match anything detected — `pipeline/validate.py`
    counts these as false negatives automatically.
-5. Point `GROUND_TRUTH_FILE` in `validate.py` at your new CSV and rerun.
+5. Point `GROUND_TRUTH_FILE` in `pipeline/validate.py` at your new CSV and rerun.
 
 Expect real-imagery numbers to be lower and messier than this synthetic
 100% — that's normal and expected. A real, honest number like "78%

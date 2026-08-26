@@ -33,10 +33,10 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run detection
-        run: python detection.py
+        run: python pipeline/detection.py
 
       - name: Score triggers
-        run: python score_triggers.py
+        run: python pipeline/score_triggers.py
 
       - name: POST scored triggers to the live API
-        run: python seed_backend.py --live
+        run: python pipeline/seed_backend.py --live

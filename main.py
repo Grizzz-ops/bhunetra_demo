@@ -1,30 +1,28 @@
 import json
 import os
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from typing import Any, Dict
+
+import requests
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from geoalchemy2 import Geometry
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import mapping, shape
+from apscheduler.schedulers.background import BackgroundScheduler
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 # Load variables from the .env file into the system environment
 load_dotenv()
-
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from typing import Dict, Any
-
-from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, text
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.exc import IntegrityError
-from geoalchemy2 import Geometry
-from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import shape, mapping
-from apscheduler.schedulers.background import BackgroundScheduler
-
-from jose import jwt, JWTError
-from passlib.context import CryptContext
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import HTTPException
 
 # ==========================================
 # 1. CONFIGURATION & RAILWAY TRAP FIX
@@ -37,11 +35,14 @@ if raw_db_url.startswith("postgres://"):
 engine = create_engine(
     raw_db_url,
     pool_pre_ping=True,  # Checks if the connection is alive before querying
-    pool_recycle=300     # Automatically refreshes connections every 5 minutes
+    pool_recycle=300,    # Automatically refreshes connections every 5 minutes
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# ==========================================
+# 2. DATABASE MODELS (PostGIS Schema)
+# ==========================================
 class Lease(Base):
     __tablename__ = "leases"
     id              = Column(Integer, primary_key=True, index=True)
@@ -78,31 +79,43 @@ class AuditLog(Base):
     action          = Column(String, nullable=False)
     notes           = Column(String, nullable=True)
     timestamp       = Column(DateTime, default=datetime.utcnow)
-# ==========================================
-# 2. DATABASE MODELS (PostGIS Schema)
-# ==========================================
+
+
 class Alert(Base):
     __tablename__ = "alerts"
 
     id = Column(Integer, primary_key=True, index=True)
     location_name = Column(String, index=True)
     risk_score = Column(Float)
-    status = Column(String, default="PENDING_OFFICER") # PENDING_OFFICER, ESCALATED_DGM, RESOLVED
+    status = Column(String, default="PENDING_OFFICER")  # PENDING_OFFICER, ESCALATED_DGM, RESOLVED
     created_at = Column(DateTime, default=datetime.utcnow)
     sla_deadline = Column(DateTime)
     trigger_id = Column(String, unique=True, index=True)
     site_id = Column(String)
     change_pct = Column(Float)
-    boundary_status = Column(String) 
-    sar_change_score = Column(Float) 
-    sar_mean_abs_change_db = Column(Float) 
-    confidence_score = Column(Float) 
-    confidence_tier = Column(String) 
-    disturbance_area_m2 = Column(Float) 
-    ntl_delta = Column(Float) 
-    legality_flag = Column(String) 
+    boundary_status = Column(String)
+    sar_change_score = Column(Float)
+    sar_mean_abs_change_db = Column(Float)
+    confidence_score = Column(Float)
+    confidence_tier = Column(String)
+    disturbance_area_m2 = Column(Float)
+    ntl_delta = Column(Float)
+    legality_flag = Column(String)
     legality_assessment = Column(JSONB)
-    
+
+    # Physical-site grouping (B3, db/cluster_sites.py) -- DISTINCT from
+    # site_id above. site_id is the AOI identifier the pipeline sets on
+    # every row for a site (e.g. "AOI-07-BALAGHAT"); cluster_id is the
+    # DBSCAN grouping *within* an AOI, since one AOI can contain several
+    # physically separate excavation fronts. Never overwrite site_id with
+    # this.
+    cluster_id = Column(Integer, nullable=True)
+
+    # LLM officer briefing (B4) -- cached so the demo never depends on a
+    # live model call. See build_brief_prompt()/call_gemini() below.
+    brief_text = Column(Text, nullable=True)
+    brief_generated_at = Column(DateTime, nullable=True)
+
     # PostGIS Spatial Column
     geometry = Column(Geometry(geometry_type='POLYGON', srid=4326))
 
@@ -115,21 +128,31 @@ Base.metadata.create_all(bind=engine)
 class TriggerPayload(BaseModel):
     """Pair A sends this exactly to POST /api/v1/triggers"""
 
-    location_name: str        
-    risk_score: float          
-    geojson_polygon: Dict[str,Any]  
+    location_name: str
+    risk_score: float
+    geojson_polygon: Dict[str, Any]
     trigger_id: str
     site_id: str
     change_pct: float
     boundary_status: str
-    sar_change_score: float | None = None    # optional — SAR can be unavailable
-    sar_mean_abs_change_db: float | None = None    
-    confidence_score: float | None = None           
-    ntl_delta: float | None = None                    
+    sar_change_score: float | None = None          # optional — SAR can be unavailable
+    sar_mean_abs_change_db: float | None = None
+    confidence_score: float | None = None
+    ntl_delta: float | None = None
     disturbance_area_m2: float
     confidence_tier: str
     legality_flag: str
-    legality_assessment: Dict[str, Any]   
+    legality_assessment: Dict[str, Any]
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AlertActionRequest(BaseModel):
+    new_status: str
+    notes: str
 
 # ==========================================
 # 4. SLA ESCALATION ENGINE (APScheduler)
@@ -143,15 +166,16 @@ def check_and_escalate_slas():
             Alert.status == "PENDING_OFFICER",
             Alert.sla_deadline <= now
         ).all()
-        
+
         for alert in expired_alerts:
             alert.status = "ESCALATED_DGM"
             print(f"SYSTEM ALERT: Escalated ID {alert.id} to DGM Administration.")
-            
+
         if expired_alerts:
             db.commit()
     finally:
         db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -182,6 +206,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -189,10 +214,12 @@ def get_db():
     finally:
         db.close()
 
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 JWT_SECRET = os.getenv("JWT_SECRET", "bhunetra_secret_key_2026")
 JWT_ALGORITHM = "HS256"
+
 
 def create_token(officer_id: int, role: str, state: str) -> str:
     payload = {
@@ -202,6 +229,7 @@ def create_token(officer_id: int, role: str, state: str) -> str:
         "exp": datetime.utcnow() + timedelta(hours=24)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 
 def get_current_officer(
     credentials: HTTPAuthorizationCredentials = Depends(security)
@@ -218,37 +246,136 @@ def get_current_officer(
             status_code=401,
             detail="Invalid or expired token. Please log in again."
         )
+
 # ==========================================
-# 6. FASTAPI ENDPOINTS
+# 6. LLM OFFICER BRIEFING (B4)
+# ==========================================
+# Calls Gemini from the backend only -- the key never leaves this process,
+# never appears in a response body, and is never referenced from the
+# frontend. Read from an environment variable only, same as JWT_SECRET.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+GEMINI_TIMEOUT_S = 60  # gemini-3.6-flash is a "thinking" model; observed latency can exceed 20s
+
+# A brief is considered stale (and eligible for regeneration) after this
+# long. Nothing in the app currently mutates confidence_tier/legality_flag/
+# disturbance_area_m2/boundary_status/legality_assessment on an existing
+# alert post-ingest, so in practice this TTL -- not a change in the
+# underlying data -- is what "stale" means today. If a re-scoring path is
+# ever added, it should also clear brief_generated_at to force a refresh.
+BRIEF_STALE_AFTER = timedelta(hours=24)
+
+
+class BriefGenerationError(Exception):
+    """Raised when the LLM call fails for any reason (missing key, timeout,
+    rate limit, non-200 response, unexpected response shape). Callers turn
+    this into a clear HTTP error instead of a 500."""
+
+
+def is_brief_stale(alert: "Alert") -> bool:
+    if not alert.brief_text or not alert.brief_generated_at:
+        return True
+    return datetime.utcnow() - alert.brief_generated_at > BRIEF_STALE_AFTER
+
+
+def build_brief_prompt(alert: "Alert") -> str:
+    """Builds the officer-briefing prompt. Must surface every
+    legality_assessment check with its data_source tag (REAL vs MOCK) so
+    the model can tell the officer which findings rest on real satellite
+    geometry versus the mock permit registry -- that distinction is the
+    whole point of this feature, not a nice-to-have."""
+    assessment = alert.legality_assessment or {}
+    check_lines = [
+        f"- {check_name}: {details['value']} (data_source: {details['data_source']})"
+        for check_name, details in assessment.items()
+        if isinstance(details, dict) and "value" in details and "data_source" in details
+    ]
+    checks_block = "\n".join(check_lines) if check_lines else "No legality_assessment checks are recorded for this alert."
+
+    return f"""You are drafting a short briefing note for a field officer reviewing a satellite-detected mining disturbance alert. Base your summary strictly on the data below -- do not add outside knowledge or speculation.
+
+ALERT DATA
+- confidence_tier: {alert.confidence_tier}
+- legality_flag: {alert.legality_flag}
+- disturbance_area_m2: {alert.disturbance_area_m2}
+- boundary_status: {alert.boundary_status}
+
+LEGALITY ASSESSMENT CHECKS (each tagged with its data source):
+{checks_block}
+
+INSTRUCTIONS
+- Explicitly state which findings above rest on REAL satellite/geometry data and which rest on the MOCK permit registry (data_source: MOCK) -- the officer must be able to tell these apart at a glance.
+- Write 3-5 sentences, plain language, for a field officer with no GIS background.
+- HARD RULE: never write "illegal mining detected," "illegal mining confirmed," or any other assertion that mining here is illegal. This system flags candidates for human verification only -- it does not make legal determinations. Use hedged language only: "flagged for verification," "warrants an on-site check," "requires officer review," or equivalent.
+- Do not invent facts that are not present in the data above.
+"""
+
+
+def call_gemini(prompt: str) -> str:
+    if not GEMINI_API_KEY:
+        raise BriefGenerationError("GEMINI_API_KEY is not configured on the server")
+
+    try:
+        resp = requests.post(
+            GEMINI_ENDPOINT,
+            params={"key": GEMINI_API_KEY},
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=GEMINI_TIMEOUT_S,
+        )
+    except requests.RequestException as e:
+        raise BriefGenerationError(f"Request to Gemini failed: {e}") from e
+
+    if resp.status_code != 200:
+        raise BriefGenerationError(f"Gemini returned HTTP {resp.status_code}: {resp.text[:300]}")
+
+    try:
+        data = resp.json()
+        parts = data["candidates"][0]["content"]["parts"]
+        # gemini-3.6-flash is a "thinking" model and can return more than
+        # one part (e.g. an internal thought part alongside the final
+        # answer) -- join every part that actually carries visible text
+        # rather than assuming the answer is always parts[0].
+        text = "".join(p["text"] for p in parts if "text" in p)
+    except (KeyError, IndexError, ValueError) as e:
+        raise BriefGenerationError(f"Unexpected Gemini response shape: {e}") from e
+
+    if not text.strip():
+        raise BriefGenerationError("Gemini returned no visible text in its response")
+
+    return text.strip()
+
+# ==========================================
+# 7. FASTAPI ENDPOINTS
 # ==========================================
 @app.post("/api/v1/triggers")
 def ingest_trigger(payload: TriggerPayload, db: Session = Depends(get_db)):
     """Pair A (Data Pipeline) uses this to insert detected anomalies."""
-    
+
     # Convert incoming GeoJSON directly to Shapely shape, then to PostGIS WKB
     shapely_geom = shape(payload.geojson_polygon)
     postgis_geom = from_shape(shapely_geom, srid=4326)
-    
+
     # Set SLA to 48 hours from now
     deadline = datetime.utcnow() + timedelta(hours=48)
-    
+
     new_alert = Alert(
-    location_name=payload.location_name,
-    risk_score=payload.risk_score,
-    sla_deadline=deadline,
-    geometry=postgis_geom,
-    trigger_id=payload.trigger_id,
-    site_id=payload.site_id,
-    change_pct=payload.change_pct,
-    boundary_status=payload.boundary_status,
-    sar_change_score=payload.sar_change_score,
-    sar_mean_abs_change_db=payload.sar_mean_abs_change_db,
-    confidence_score=payload.confidence_score,
-    confidence_tier=payload.confidence_tier,
-    disturbance_area_m2=payload.disturbance_area_m2,
-    ntl_delta=payload.ntl_delta,
-    legality_flag=payload.legality_flag,
-    legality_assessment=payload.legality_assessment,
+        location_name=payload.location_name,
+        risk_score=payload.risk_score,
+        sla_deadline=deadline,
+        geometry=postgis_geom,
+        trigger_id=payload.trigger_id,
+        site_id=payload.site_id,
+        change_pct=payload.change_pct,
+        boundary_status=payload.boundary_status,
+        sar_change_score=payload.sar_change_score,
+        sar_mean_abs_change_db=payload.sar_mean_abs_change_db,
+        confidence_score=payload.confidence_score,
+        confidence_tier=payload.confidence_tier,
+        disturbance_area_m2=payload.disturbance_area_m2,
+        ntl_delta=payload.ntl_delta,
+        legality_flag=payload.legality_flag,
+        legality_assessment=payload.legality_assessment,
     )
     db.add(new_alert)
 
@@ -261,17 +388,18 @@ def ingest_trigger(payload: TriggerPayload, db: Session = Depends(get_db)):
     db.refresh(new_alert)
     return {"status": "success", "alert_id": new_alert.id}
 
+
 @app.get("/api/v1/alerts")
 def get_alerts(db: Session = Depends(get_db)):
     """Pair C (Frontend) uses this to populate the Next.js/Leaflet map."""
-    
+
     alerts = db.query(Alert).all()
     feature_collection = {"type": "FeatureCollection", "features": []}
-    
+
     for alert in alerts:
         shapely_geom = to_shape(alert.geometry)
         geom_geojson = mapping(shapely_geom)
-        
+
         feature = {
             "type": "Feature",
             "geometry": geom_geojson,
@@ -284,8 +412,9 @@ def get_alerts(db: Session = Depends(get_db)):
             }
         }
         feature_collection["features"].append(feature)
-        
+
     return feature_collection
+
 
 @app.post("/api/v1/simulate/advance-sla")
 def advance_time(db: Session = Depends(get_db)):
@@ -293,21 +422,18 @@ def advance_time(db: Session = Depends(get_db)):
     # Intentionally unauthenticated: demo-only control to skip the 48h SLA
     # wait during the hackathon walkthrough. Do not carry this endpoint
     # (or its lack of auth) into any non-demo deployment.
-    
+
     past_time = datetime.utcnow() - timedelta(hours=49)
-    
+
     db.query(Alert).filter(Alert.status == "PENDING_OFFICER").update(
         {"sla_deadline": past_time}
     )
     db.commit()
-    
+
     check_and_escalate_slas()
-    
+
     return {"status": "success", "message": "Time-travel activated. SLAs expired and escalated."}
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
 
 @app.post("/api/v1/auth/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
@@ -337,9 +463,6 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         "name": officer.name
     }
 
-class AlertActionRequest(BaseModel):
-    new_status: str
-    notes: str
 
 @app.patch("/api/v1/alerts/{alert_id}/action")
 def officer_action(
@@ -381,6 +504,7 @@ def officer_action(
         "updated_by": current_officer["officer_id"]
     }
 
+
 @app.get("/api/v1/leases")
 def get_lease_boundaries(db: Session = Depends(get_db)):
     """Pair C (Frontend) uses this to draw legal lease-boundary polygons on
@@ -420,8 +544,101 @@ def get_lease_boundaries(db: Session = Depends(get_db)):
 
     return feature_collection
 
+
+# Most-severe-wins order for site-level legality (B3). A legality_flag that
+# isn't one of the three the pipeline emits (e.g. None, from alerts
+# ingested before this field existed) is treated as INSUFFICIENT_DATA --
+# "we don't know" is the honest default, not "compliant."
+SITE_LEGALITY_SEVERITY = ["POTENTIAL_VIOLATION", "INSUFFICIENT_DATA", "APPEARS_COMPLIANT"]
+
+
+def site_legality_flag(members: list) -> str:
+    flags = {
+        m.legality_flag if m.legality_flag in SITE_LEGALITY_SEVERITY else "INSUFFICIENT_DATA"
+        for m in members
+    }
+    for level in SITE_LEGALITY_SEVERITY:
+        if level in flags:
+            return level
+    return "APPEARS_COMPLIANT"
+
+
+@app.get("/api/v1/sites")
+def get_sites(db: Session = Depends(get_db)):
+    """Groups alerts into physical mining sites by cluster_id (computed
+    offline by db/cluster_sites.py -- see that script for why DBSCAN and
+    why eps=400m). Alerts that haven't been clustered yet (cluster_id is
+    still NULL) are excluded rather than shown as a misleading site of
+    their own."""
+    alerts = db.query(Alert).filter(Alert.cluster_id.isnot(None)).all()
+
+    clusters: Dict[int, list] = {}
+    for alert in alerts:
+        clusters.setdefault(alert.cluster_id, []).append(alert)
+
+    sites = []
+    for cluster_id, members in clusters.items():
+        centroids = [to_shape(m.geometry).centroid for m in members]
+        lons = [c.x for c in centroids]
+        lats = [c.y for c in centroids]
+
+        sites.append({
+            "cluster_id": cluster_id,
+            "member_count": len(members),
+            "alert_ids": [m.id for m in members],
+            "trigger_ids": [m.trigger_id for m in members],
+            "total_disturbance_area_m2": round(sum(m.disturbance_area_m2 or 0 for m in members), 1),
+            "centroid": {
+                "lon": round(sum(lons) / len(lons), 6),
+                "lat": round(sum(lats) / len(lats), 6),
+            },
+            # Most-severe-wins: a site straddling the lease boundary is an
+            # encroachment, not a compliant site with a rounding error.
+            "legality_flag": site_legality_flag(members),
+        })
+
+    sites.sort(key=lambda s: s["cluster_id"])
+    return {"sites": sites}
+
+
+@app.post("/api/v1/alerts/{alert_id}/brief")
+def generate_brief(alert_id: int, db: Session = Depends(get_db)):
+    """Generates (or returns the cached) LLM officer briefing for one
+    alert. See build_brief_prompt()/call_gemini() above for the guardrails
+    (hedged language only, REAL vs MOCK data-source callouts)."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    if not is_brief_stale(alert):
+        return {
+            "alert_id": alert.id,
+            "brief_text": alert.brief_text,
+            "generated_at": alert.brief_generated_at.isoformat(),
+            "cached": True,
+        }
+
+    prompt = build_brief_prompt(alert)
+    try:
+        brief_text = call_gemini(prompt)
+    except BriefGenerationError as e:
+        # A failed LLM call is a normal, expected condition (rate limit,
+        # timeout, bad key) -- surface it as a clear 503, never a bare 500.
+        raise HTTPException(status_code=503, detail=f"Brief generation failed: {e}")
+
+    alert.brief_text = brief_text
+    alert.brief_generated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "alert_id": alert.id,
+        "brief_text": brief_text,
+        "generated_at": alert.brief_generated_at.isoformat(),
+        "cached": False,
+    }
+
 # ==========================================
-# 7. LOCAL SERVER RUNNER
+# 8. LOCAL SERVER RUNNER
 # ==========================================
 if __name__ == "__main__":
     import uvicorn

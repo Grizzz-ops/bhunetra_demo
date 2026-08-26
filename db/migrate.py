@@ -47,6 +47,14 @@ ALTER TABLE alerts ADD COLUMN IF NOT EXISTS ntl_delta FLOAT;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS legality_flag VARCHAR;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS legality_assessment JSONB;
 
+-- B3: DBSCAN physical-site grouping (db/cluster_sites.py writes this).
+-- Distinct from site_id above -- do not confuse the two.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS cluster_id INTEGER;
+
+-- B4: cached LLM officer briefing.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS brief_text TEXT;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS brief_generated_at TIMESTAMP;
+
 -- The Alert model declares trigger_id as unique=True, index=True, and
 -- ingest_trigger() relies on that uniqueness to turn a duplicate insert
 -- into an IntegrityError it can catch and turn into HTTP 409. Adding the
@@ -60,7 +68,7 @@ def run_migration():
     with engine.connect() as conn:
         conn.execute(text(MIGRATION_SQL))
         conn.commit()
-    print("Migration successful! All 12 new columns + trigger_id unique index are on 'alerts'.")
+    print("Migration successful! All 15 new columns + trigger_id unique index are on 'alerts'.")
 
 if __name__ == "__main__":
     run_migration()

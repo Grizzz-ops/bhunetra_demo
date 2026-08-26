@@ -1,0 +1,172 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --border: #d8dce0;
+  --text: #12161a;
+  --text-muted: #5c6670;
+  --text-faint: #8a939b;
+
+  --accent: #e8420c;
+  --accent-text: #ffffff;
+
+  --violation: #d63a1a;
+  --violation-bg: #fdeae4;
+  --unverified: #9a7414;
+  --unverified-bg: #faf1d9;
+  --compliant: #1f7a4d;
+  --compliant-bg: #e3f3ea;
+
+  --sla-calm: #1f7a4d;
+  --sla-warn: #b3720c;
+  --sla-critical: #d63a1a;
+
+  --shadow: 0 1px 2px rgba(15, 20, 25, 0.06), 0 4px 12px rgba(15, 20, 25, 0.08);
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0d10;
+  --surface: #12161a;
+  --surface-raised: #171c21;
+  --border: #262e35;
+  --text: #edf1f4;
+  --text-muted: #9aa5ae;
+  --text-faint: #6b7580;
+
+  --accent: #ff6a3d;
+  --accent-text: #14100d;
+
+  --violation: #ff6a3d;
+  --violation-bg: #2a1712;
+  --unverified: #e0b23c;
+  --unverified-bg: #2a2312;
+  --compliant: #4fca8c;
+  --compliant-bg: #10261c;
+
+  --sla-calm: #4fca8c;
+  --sla-warn: #e0b23c;
+  --sla-critical: #ff6a3d;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0d10;
+    --surface: #12161a;
+    --surface-raised: #171c21;
+    --border: #262e35;
+    --text: #edf1f4;
+    --text-muted: #9aa5ae;
+    --text-faint: #6b7580;
+
+    --accent: #ff6a3d;
+    --accent-text: #14100d;
+
+    --violation: #ff6a3d;
+    --violation-bg: #2a1712;
+    --unverified: #e0b23c;
+    --unverified-bg: #2a2312;
+    --compliant: #4fca8c;
+    --compliant-bg: #10261c;
+
+    --sla-calm: #4fca8c;
+    --sla-warn: #e0b23c;
+    --sla-critical: #ff6a3d;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-violation: var(--violation);
+  --color-violation-bg: var(--violation-bg);
+  --color-unverified: var(--unverified);
+  --color-unverified-bg: var(--unverified-bg);
+  --color-compliant: var(--compliant);
+  --color-compliant-bg: var(--compliant-bg);
+  --font-display: var(--font-plex-mono);
+  --font-body: var(--font-plex-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-monospace, monospace;
+}
+
+/* Leaflet dark-mode tile treatment -- invert+hue-rotate the raster tiles so
+   the base map isn't a jarring white rectangle in dark mode. Markers/popups
+   are excluded (re-inverted) so they stay legible. */
+:root[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+  }
+}
+.leaflet-container {
+  background: var(--surface);
+  font-family: var(--font-body), ui-sans-serif, sans-serif;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+/* Pulsing ring for a breaching/critical SLA -- legible from across the room */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--sla-critical) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--sla-critical) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--sla-critical) 0%, transparent);
+  }
+}
+.pulse-critical {
+  animation: pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

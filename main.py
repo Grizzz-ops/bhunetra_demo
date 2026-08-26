@@ -405,10 +405,24 @@ def get_alerts(db: Session = Depends(get_db)):
             "geometry": geom_geojson,
             "properties": {
                 "id": alert.id,
+                "trigger_id": alert.trigger_id,
+                "site_id": alert.site_id,
+                "cluster_id": alert.cluster_id,
                 "location_name": alert.location_name,
                 "risk_score": alert.risk_score,
+                "change_pct": alert.change_pct,
+                "boundary_status": alert.boundary_status,
+                "sar_change_score": alert.sar_change_score,
+                "confidence_score": alert.confidence_score,
+                "confidence_tier": alert.confidence_tier,
+                "disturbance_area_m2": alert.disturbance_area_m2,
+                "ntl_delta": alert.ntl_delta,
+                "legality_flag": alert.legality_flag,
+                "legality_assessment": alert.legality_assessment,
                 "status": alert.status,
-                "sla_deadline": alert.sla_deadline.isoformat()
+                "sla_deadline": alert.sla_deadline.isoformat(),
+                "brief_text": alert.brief_text,
+                "brief_generated_at": alert.brief_generated_at.isoformat() if alert.brief_generated_at else None,
             }
         }
         feature_collection["features"].append(feature)

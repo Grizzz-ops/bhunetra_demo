@@ -84,10 +84,12 @@ export default function MapView({
   onSelectAlert: (id: number) => void;
 }) {
   const [basemap, setBasemap] = useState<BaseMapType>("satellite");
+  const [showLabels, setShowLabels] = useState(true);
   const [showLeases, setShowLeases] = useState(true);
   const [showTriggers, setShowTriggers] = useState(true);
   const [showPolygons, setShowPolygons] = useState(true);
   const [showLayersMenu, setShowLayersMenu] = useState(false);
+
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lon: number; zoom: number }>({
     lat: DEFAULT_CENTER[0],
     lon: DEFAULT_CENTER[1],
@@ -117,6 +119,8 @@ export default function MapView({
     return pts.length ? (pts as LatLngBoundsExpression) : null;
   }, [selectedSiteMembers]);
 
+  const currentBasemap = BASEMAPS[basemap];
+
   async function handleCopyCurrent() {
     const success = await copyCoordinatesToClipboard(cursorCoords.lat, cursorCoords.lon);
     if (success) {
@@ -125,10 +129,22 @@ export default function MapView({
     }
   }
 
-  const currentBasemap = BASEMAPS[basemap];
-
   return (
     <div className="relative h-full w-full overflow-hidden">
+      {/* Top Location & State HUD Banner */}
+      <div className="absolute top-3 left-14 z-[1000] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface/90 backdrop-blur-md border border-border shadow-md pointer-events-auto">
+        <span className="text-accent text-xs">📍</span>
+        <div className="font-display text-xs flex items-center gap-1.5 flex-wrap">
+          <span className="font-bold text-text">Bailadila AOI-07</span>
+          <span className="text-text-muted">&middot;</span>
+          <span className="text-text font-medium">Dantewada District</span>
+          <span className="text-text-muted">&middot;</span>
+          <span className="px-1.5 py-0.5 rounded bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider">
+            Chhattisgarh State
+          </span>
+        </div>
+      </div>
+
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={13}
@@ -142,6 +158,36 @@ export default function MapView({
           maxZoom={currentBasemap.maxZoom}
           attribution={currentBasemap.attribution}
         />
+
+        {/* State Names, District Names, Towns, and Boundary Reference Overlays */}
+        {showLabels && basemap === "satellite" && (
+          <>
+            <TileLayer
+              key="satellite-boundaries-places"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+              opacity={0.95}
+              zIndex={10}
+            />
+            <TileLayer
+              key="satellite-roads"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+              opacity={0.85}
+              zIndex={9}
+            />
+          </>
+        )}
+
+        {showLabels && basemap === "dark" && (
+          <TileLayer
+            key="dark-labels"
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
+            maxZoom={20}
+            opacity={0.95}
+            zIndex={10}
+          />
+        )}
 
         <LiveCoordinateTracker
           onCoordChange={(lat, lon, zoom) => setCursorCoords({ lat, lon, zoom })}
@@ -274,17 +320,21 @@ export default function MapView({
                       </div>
                       <div className="flex justify-between">
                         <span>NDVI Loss:</span>
-                        <strong className="text-red-500">-{formatPercent(p.change_pct)}</strong>
+                        <strong className="text-text">{formatPercent(p.change_pct)}</strong>
                       </div>
                       <div className="flex justify-between">
                         <span>Disturbance:</span>
                         <strong className="text-text">{formatArea(p.disturbance_area_m2)}</strong>
                       </div>
+                      <div className="text-[10px] text-text-faint pt-1 border-t border-border/40 flex items-center gap-1">
+                        <span>📍</span>
+                        <span>Dantewada District, Chhattisgarh</span>
+                      </div>
                     </div>
 
                     <button
                       onClick={() => onSelectAlert(p.id)}
-                      className="w-full mt-2 py-1.5 rounded bg-accent text-accent-text font-bold text-xs uppercase text-center hover:opacity-90 transition-opacity"
+                      className="w-full mt-1.5 py-1 rounded bg-accent text-accent-text text-center font-bold text-xs hover:opacity-90 transition-opacity"
                     >
                       Inspect & Triage
                     </button>
@@ -334,6 +384,16 @@ export default function MapView({
               <div className="text-[10px] uppercase font-bold text-text-faint tracking-wider">
                 Layers & Overlays
               </div>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-text">State & Place Labels</span>
+                <input
+                  type="checkbox"
+                  checked={showLabels}
+                  onChange={(e) => setShowLabels(e.target.checked)}
+                  className="rounded accent-accent"
+                />
+              </label>
 
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-text">Lease Boundaries</span>

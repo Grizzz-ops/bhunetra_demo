@@ -122,25 +122,22 @@ body {
   font-family: var(--font-display), ui-monospace, monospace;
 }
 
-/* Leaflet dark-mode tile treatment -- invert+hue-rotate the raster tiles so
-   the base map isn't a jarring white rectangle in dark mode. Markers/popups
-   are excluded (re-inverted) so they stay legible. */
-:root[data-theme="dark"] .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .leaflet-tile-pane {
-    filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
-  }
-}
 .leaflet-container {
   background: var(--surface);
   font-family: var(--font-body), ui-sans-serif, sans-serif;
 }
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: var(--surface-raised);
-  color: var(--text);
+  background: var(--surface-raised) !important;
+  color: var(--text) !important;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.leaflet-popup-content {
+  margin: 8px 10px !important;
+  line-height: 1.4;
 }
 
 /* Pulsing ring for a breaching/critical SLA -- legible from across the room */
@@ -159,9 +156,32 @@ body {
   animation: pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
@@ -170,3 +190,15 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Hide Next.js dev indicators and overlays that block corner buttons */
+nextjs-portal,
+#__next-build-watcher,
+[data-nextjs-toast-wrapper],
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay],
+div[data-nextjs-dev-overlay] {
+  display: none !important;
+}
+
+

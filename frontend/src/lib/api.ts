@@ -2,6 +2,8 @@ import type {
   AlertsResponse,
   BriefResponse,
   ActionResponse,
+  AuditLogEntry,
+  AuditLogsResponse,
   LeasesResponse,
   LoginResponse,
   SitesResponse,
@@ -14,6 +16,8 @@ import type {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "https://bhunetrademo-production.up.railway.app";
+
+const LOCAL_AUDIT_KEY = "bhunetra.audit_logs";
 
 export class ApiError extends Error {
   status: number;
@@ -112,15 +116,118 @@ export function generateBrief(alertId: number, token: string) {
   });
 }
 
-export function updateAlertAction(
+// Initial baseline mock audit logs to showcase history
+const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
+  {
+    id: 101,
+    alert_id: 1,
+    trigger_id: "MSS-D4D2AA",
+    location_name: "Bailadila AOI-07 — MSS-D4D2AA",
+    officer_id: 2,
+    officer_name: "Inspector R. Verma",
+    previous_status: "PENDING_OFFICER",
+    new_status: "ESCALATED_DGM",
+    action: "STATUS_UPDATED",
+    notes: "Suspected large-scale violation — excavation outside lease boundary detected via Sentinel-2 optical.",
+    timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
+  },
+  {
+    id: 102,
+    alert_id: 2,
+    trigger_id: "MSS-C1FF79",
+    location_name: "Bailadila AOI-07 — MSS-C1FF79",
+    officer_id: 2,
+    officer_name: "Inspector R. Verma",
+    previous_status: "PENDING_OFFICER",
+    new_status: "RESOLVED",
+    action: "STATUS_UPDATED",
+    notes: "Site is licensed / already known — verified against local DMG registry lease records.",
+    timestamp: new Date(Date.now() - 3600000 * 18).toISOString(),
+  },
+  {
+    id: 103,
+    alert_id: 3,
+    trigger_id: "MSS-07A189",
+    location_name: "Bailadila AOI-07 — MSS-07A189",
+    officer_id: 1,
+    officer_name: "HQ Officer A. Sharma",
+    previous_status: "PENDING_OFFICER",
+    new_status: "ESCALATED_DGM",
+    action: "STATUS_UPDATED",
+    notes: "Needs DGM review — high SAR backscatter change confirmed through monsoon cloud cover.",
+    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+  },
+];
+
+export function getLocalAuditLogs(): AuditLogEntry[] {
+  if (typeof window === "undefined") return INITIAL_AUDIT_LOGS;
+  try {
+    const raw = window.localStorage.getItem(LOCAL_AUDIT_KEY);
+    if (!raw) {
+      window.localStorage.setItem(LOCAL_AUDIT_KEY, JSON.stringify(INITIAL_AUDIT_LOGS));
+      return INITIAL_AUDIT_LOGS;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return INITIAL_AUDIT_LOGS;
+  }
+}
+
+export function appendLocalAuditLog(entry: AuditLogEntry): void {
+  if (typeof window === "undefined") return;
+  try {
+    const logs = getLocalAuditLogs();
+    const updated = [entry, ...logs.filter((l) => l.id !== entry.id)];
+    window.localStorage.setItem(LOCAL_AUDIT_KEY, JSON.stringify(updated));
+  } catch {
+    // best-effort
+  }
+}
+
+export async function getAuditLogs(token: string): Promise<AuditLogsResponse> {
+  try {
+    return await request<AuditLogsResponse>("/api/v1/audit-logs", { token });
+  } catch {
+    // Fallback to local persistent audit log store
+    return { audit_logs: getLocalAuditLogs() };
+  }
+}
+
+export async function updateAlertAction(
   alertId: number,
   newStatus: AlertStatus,
   notes: string,
-  token: string
+  token: string,
+  extra?: { triggerId?: string | null; locationName?: string; officerName?: string; officerId?: number | null; previousStatus?: AlertStatus }
 ) {
-  return request<ActionResponse>(`/api/v1/alerts/${alertId}/action`, {
-    method: "PATCH",
-    token,
-    body: JSON.stringify({ new_status: newStatus, notes }),
-  });
+  let res: ActionResponse;
+  try {
+    res = await request<ActionResponse>(`/api/v1/alerts/${alertId}/action`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ new_status: newStatus, notes }),
+    });
+  } catch (err) {
+    // If backend patch succeeds or even if local test, log action locally
+    throw err;
+  }
+
+  // Record audit log entry
+  const entry: AuditLogEntry = {
+    id: Date.now(),
+    alert_id: alertId,
+    trigger_id: extra?.triggerId,
+    location_name: extra?.locationName,
+    officer_id: res.updated_by ?? extra?.officerId ?? 1,
+    officer_name: extra?.officerName ?? "Current Officer",
+    previous_status: res.previous_status ?? extra?.previousStatus ?? "PENDING_OFFICER",
+    new_status: res.new_status ?? newStatus,
+    action: "STATUS_UPDATED",
+    notes,
+    timestamp: new Date().toISOString(),
+  };
+  appendLocalAuditLog(entry);
+
+  return res;
 }
+

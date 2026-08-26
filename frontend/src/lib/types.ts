@@ -101,6 +101,26 @@ export interface ActionResponse {
   updated_by: number;
 }
 
+export interface AuditLogEntry {
+  id: number;
+  alert_id: number;
+  trigger_id?: string | null;
+  location_name?: string;
+  officer_id: number | null;
+  officer_name?: string;
+  previous_status: AlertStatus | string | null;
+  new_status: AlertStatus | string | null;
+  action: string;
+  notes: string | null;
+  timestamp: string;
+}
+
+export interface AuditLogsResponse {
+  audit_logs: AuditLogEntry[];
+}
+
+export type DashboardViewMode = "sites" | "triggers" | "map";
+
 export interface LeaseFeature {
   type: "Feature";
   geometry: GeoJSONPolygon;
@@ -117,3 +137,4 @@ export interface LeasesResponse {
   type: "FeatureCollection";
   features: LeaseFeature[];
 }
+

@@ -1,6 +1,7 @@
 import type { AlertFeature, Site } from "@/lib/types";
 import { SiteCard } from "./SiteCard";
-import { rankSites, siteEarliestDeadline } from "@/lib/rank";
+import { siteEarliestDeadline } from "@/lib/rank";
+
 
 export function SiteList({
   sites,
@@ -13,9 +14,9 @@ export function SiteList({
   selectedSiteId: number | null;
   onSelectSite: (id: number) => void;
 }) {
-  const ranked = rankSites(sites, alertsBySite);
+  const sortedSites = [...sites].sort((a, b) => a.cluster_id - b.cluster_id);
 
-  if (ranked.length === 0) {
+  if (sortedSites.length === 0) {
     return (
       <div className="p-6 text-center text-sm text-text-muted">
         No clustered sites yet. Run the clustering job to group detections into sites.
@@ -23,9 +24,16 @@ export function SiteList({
     );
   }
 
+  const totalTriggers = sortedSites.reduce((sum, s) => sum + (alertsBySite.get(s.cluster_id)?.length ?? 0), 0);
+
   return (
     <div className="space-y-2 p-3">
-      {ranked.map((site) => {
+      <div className="px-1 pb-1 flex items-center justify-between text-xs font-display text-text-muted">
+        <span className="font-semibold text-text">{sortedSites.length} Mine Site Clusters</span>
+        <span className="text-[11px] text-text-faint">{totalTriggers} Total Triggers</span>
+      </div>
+
+      {sortedSites.map((site) => {
         const members = alertsBySite.get(site.cluster_id) ?? [];
         const deadline = siteEarliestDeadline(members);
         return (
@@ -42,3 +50,4 @@ export function SiteList({
     </div>
   );
 }
+

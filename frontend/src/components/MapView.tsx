@@ -1,13 +1,47 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, TileLayer, Polygon, CircleMarker, useMap } from "react-leaflet";
+import { useEffect, useMemo, useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Polygon,
+  CircleMarker,
+  Tooltip,
+  Popup,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import type { LatLngBoundsExpression, LatLngTuple } from "leaflet";
 import type { AlertFeature, LeaseFeature, Site } from "@/lib/types";
-import { polygonToLatLngs } from "@/lib/geo";
-import { legalityMeta } from "@/lib/format";
+import { polygonToLatLngs, polygonCentroid, formatCoordinates, copyCoordinatesToClipboard } from "@/lib/geo";
+import { formatArea, formatPercent, formatScore, legalityMeta } from "@/lib/format";
+import { LayersIcon, CopyIcon, CheckIcon, CrosshairIcon } from "./icons";
+
 
 const DEFAULT_CENTER: LatLngTuple = [18.66, 81.23]; // Bailadila AOI fallback
+
+type BaseMapType = "satellite" | "osm" | "dark";
+
+const BASEMAPS: Record<BaseMapType, { name: string; url: string; attribution: string; maxZoom: number }> = {
+  satellite: {
+    name: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+    maxZoom: 19,
+  },
+  osm: {
+    name: "Street Map",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19,
+  },
+  dark: {
+    name: "Dark Canvas",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+    maxZoom: 20,
+  },
+};
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
   const map = useMap();
@@ -16,6 +50,19 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
     }
   }, [bounds, map]);
+  return null;
+}
+
+function LiveCoordinateTracker({ onCoordChange }: { onCoordChange: (lat: number, lon: number, zoom: number) => void }) {
+  const map = useMapEvents({
+    mousemove(e) {
+      onCoordChange(e.latlng.lat, e.latlng.lng, map.getZoom());
+    },
+    zoomend() {
+      const center = map.getCenter();
+      onCoordChange(center.lat, center.lng, map.getZoom());
+    },
+  });
   return null;
 }
 
@@ -36,6 +83,18 @@ export default function MapView({
   onSelectSite: (id: number) => void;
   onSelectAlert: (id: number) => void;
 }) {
+  const [basemap, setBasemap] = useState<BaseMapType>("satellite");
+  const [showLeases, setShowLeases] = useState(true);
+  const [showTriggers, setShowTriggers] = useState(true);
+  const [showPolygons, setShowPolygons] = useState(true);
+  const [showLayersMenu, setShowLayersMenu] = useState(false);
+  const [cursorCoords, setCursorCoords] = useState<{ lat: number; lon: number; zoom: number }>({
+    lat: DEFAULT_CENTER[0],
+    lon: DEFAULT_CENTER[1],
+    zoom: 13,
+  });
+  const [copiedCoord, setCopiedCoord] = useState(false);
+
   const initialBounds = useMemo<LatLngBoundsExpression | null>(() => {
     const points: LatLngTuple[] = sites.map((s) => [s.centroid.lat, s.centroid.lon]);
     if (points.length === 0) return null;
@@ -58,94 +117,273 @@ export default function MapView({
     return pts.length ? (pts as LatLngBoundsExpression) : null;
   }, [selectedSiteMembers]);
 
-  const mountedOnce = useRef(false);
-  useEffect(() => {
-    mountedOnce.current = true;
-  }, []);
+  async function handleCopyCurrent() {
+    const success = await copyCoordinatesToClipboard(cursorCoords.lat, cursorCoords.lon);
+    if (success) {
+      setCopiedCoord(true);
+      setTimeout(() => setCopiedCoord(false), 2000);
+    }
+  }
+
+  const currentBasemap = BASEMAPS[basemap];
 
   return (
-    <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={13}
-      className="h-full w-full"
-      zoomControl={true}
-      attributionControl={true}
-    >
-      <TileLayer
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
-        attribution="&copy; OpenStreetMap contributors"
-      />
-
-      <FitBounds bounds={selectedBounds ?? initialBounds} />
-
-      {leases.map((lease) => (
-        <Polygon
-          key={`lease-${lease.properties.id}`}
-          positions={polygonToLatLngs(lease.geometry)}
-          pathOptions={{
-            color: "var(--text-faint)",
-            weight: 1.5,
-            dashArray: "4 4",
-            fillOpacity: 0.02,
-          }}
-          interactive={false}
+    <div className="relative h-full w-full overflow-hidden">
+      <MapContainer
+        center={DEFAULT_CENTER}
+        zoom={13}
+        className="h-full w-full z-0"
+        zoomControl={true}
+        attributionControl={true}
+      >
+        <TileLayer
+          key={basemap}
+          url={currentBasemap.url}
+          maxZoom={currentBasemap.maxZoom}
+          attribution={currentBasemap.attribution}
         />
-      ))}
 
-      {selectedSiteId == null &&
-        sites.map((site) => {
-          const meta = legalityMeta(site.legality_flag);
-          const isSelected = site.cluster_id === selectedSiteId;
-          return (
-            <CircleMarker
-              key={`site-${site.cluster_id}`}
-              center={[site.centroid.lat, site.centroid.lon]}
-              radius={Math.min(26, 11 + Math.sqrt(site.member_count) * 4)}
-              pathOptions={{
-                color: meta.color,
-                weight: isSelected ? 3 : 2,
-                fillColor: meta.color,
-                fillOpacity: 0.35,
-              }}
-              eventHandlers={{ click: () => onSelectSite(site.cluster_id) }}
-            />
-          );
-        })}
+        <LiveCoordinateTracker
+          onCoordChange={(lat, lon, zoom) => setCursorCoords({ lat, lon, zoom })}
+        />
 
-      {selectedSiteId != null &&
-        selectedSiteMembers.map((alert) => {
-          const meta = legalityMeta(alert.properties.legality_flag);
-          const isSelectedAlert = alert.properties.id === selectedAlertId;
-          return (
+        <FitBounds bounds={selectedBounds ?? initialBounds} />
+
+        {/* Legal Lease Boundaries */}
+        {showLeases &&
+          leases.map((lease) => (
             <Polygon
-              key={`alert-${alert.properties.id}`}
-              positions={polygonToLatLngs(alert.geometry)}
+              key={`lease-${lease.properties.id}`}
+              positions={polygonToLatLngs(lease.geometry)}
               pathOptions={{
-                color: meta.color,
-                weight: isSelectedAlert ? 4 : 2,
-                fillColor: meta.color,
-                fillOpacity: isSelectedAlert ? 0.5 : 0.25,
+                color: "#10b981",
+                weight: 2,
+                dashArray: "6 6",
+                fillColor: "#10b981",
+                fillOpacity: 0.06,
               }}
-              eventHandlers={{ click: () => onSelectAlert(alert.properties.id) }}
-            />
-          );
-        })}
+            >
+              <Tooltip direction="top" opacity={0.9} sticky>
+                <div className="font-display text-xs p-1">
+                  <div className="font-bold text-emerald-400">LEGAL MINING LEASE</div>
+                  <div className="text-white">{lease.properties.lessee_name ?? `Lease #${lease.properties.id}`}</div>
+                  <div className="text-white/70">{lease.properties.mineral_type ?? "Iron Ore"} &middot; {lease.properties.status}</div>
+                </div>
+              </Tooltip>
+            </Polygon>
+          ))}
 
-      {selectedSiteId != null &&
-        (() => {
-          const site = sites.find((s) => s.cluster_id === selectedSiteId);
-          if (!site) return null;
-          const meta = legalityMeta(site.legality_flag);
-          return (
-            <CircleMarker
-              center={[site.centroid.lat, site.centroid.lon]}
-              radius={7}
-              pathOptions={{ color: meta.color, weight: 2, fillColor: "#fff", fillOpacity: 1 }}
-              interactive={false}
-            />
-          );
-        })()}
-    </MapContainer>
+        {/* Site Markers (when not drilling down) */}
+        {selectedSiteId == null &&
+          sites.map((site) => {
+            const meta = legalityMeta(site.legality_flag);
+            const isViolation = site.legality_flag === "POTENTIAL_VIOLATION";
+
+            return (
+              <CircleMarker
+                key={`site-${site.cluster_id}`}
+                center={[site.centroid.lat, site.centroid.lon]}
+                radius={Math.min(28, 14 + Math.sqrt(site.member_count) * 4)}
+                pathOptions={{
+                  color: isViolation ? "#ff3333" : meta.color,
+                  weight: 3,
+                  fillColor: meta.color,
+                  fillOpacity: 0.55,
+                }}
+                eventHandlers={{ click: () => onSelectSite(site.cluster_id) }}
+              >
+                <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
+                  <div className="font-display text-xs p-1 space-y-0.5">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: meta.color }} />
+                      Site {String(site.cluster_id).padStart(2, "0")}
+                    </div>
+                    <div className="text-white/80">{site.member_count} detections &middot; {formatArea(site.total_disturbance_area_m2)}</div>
+                    <div className="text-[10px] text-white/60">{formatCoordinates(site.centroid.lat, site.centroid.lon, 4)}</div>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            );
+          })}
+
+        {/* Detailed Trigger Points & Polygons across all or selected site */}
+        {showPolygons &&
+          (selectedSiteId != null ? selectedSiteMembers : alerts).map((alert) => {
+            const p = alert.properties;
+            const meta = legalityMeta(p.legality_flag);
+            const isSelectedAlert = p.id === selectedAlertId;
+            const isViolation = p.legality_flag === "POTENTIAL_VIOLATION";
+
+            return (
+              <Polygon
+                key={`alert-poly-${p.id}`}
+                positions={polygonToLatLngs(alert.geometry)}
+                pathOptions={{
+                  color: isSelectedAlert ? "#ffffff" : isViolation ? "#ff2222" : meta.color,
+                  weight: isSelectedAlert ? 4 : isViolation ? 2.5 : 1.5,
+                  fillColor: meta.color,
+                  fillOpacity: isSelectedAlert ? 0.7 : isViolation ? 0.45 : 0.25,
+                }}
+                eventHandlers={{ click: () => onSelectAlert(p.id) }}
+              />
+            );
+          })}
+
+        {/* High-Visibility Trigger Point Markers */}
+        {showTriggers &&
+          (selectedSiteId != null ? selectedSiteMembers : alerts).map((alert) => {
+            const p = alert.properties;
+            const meta = legalityMeta(p.legality_flag);
+            const isSelectedAlert = p.id === selectedAlertId;
+            const isViolation = p.legality_flag === "POTENTIAL_VIOLATION";
+            const [lat, lon] = polygonCentroid(alert.geometry);
+
+            return (
+              <CircleMarker
+                key={`alert-marker-${p.id}`}
+                center={[lat, lon]}
+                radius={isSelectedAlert ? 9 : isViolation ? 7 : 5}
+                pathOptions={{
+                  color: isSelectedAlert ? "#ffffff" : isViolation ? "#ff1111" : meta.color,
+                  weight: isSelectedAlert ? 3 : 2,
+                  fillColor: isViolation ? "#ff3333" : meta.color,
+                  fillOpacity: 1,
+                }}
+                eventHandlers={{ click: () => onSelectAlert(p.id) }}
+              >
+                <Popup className="bhunetra-map-popup">
+                  <div className="p-2 space-y-1.5 min-w-[200px] text-xs font-display">
+                    <div className="flex items-center justify-between border-b border-border/60 pb-1">
+                      <span className="font-bold text-text text-sm">{p.trigger_id ?? `Alert #${p.id}`}</span>
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold"
+                        style={{ background: meta.bg, color: meta.color }}
+                      >
+                        {meta.label}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-text-muted">
+                      <div className="flex justify-between">
+                        <span>Coordinates:</span>
+                        <strong className="text-text">{formatCoordinates(lat, lon, 4)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Risk Score:</span>
+                        <strong className="text-text">{formatScore(p.risk_score, 1)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>NDVI Loss:</span>
+                        <strong className="text-red-500">-{formatPercent(p.change_pct)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Disturbance:</span>
+                        <strong className="text-text">{formatArea(p.disturbance_area_m2)}</strong>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onSelectAlert(p.id)}
+                      className="w-full mt-2 py-1.5 rounded bg-accent text-accent-text font-bold text-xs uppercase text-center hover:opacity-90 transition-opacity"
+                    >
+                      Inspect & Triage
+                    </button>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
+      </MapContainer>
+
+      {/* Floating Layer & Basemap Switcher Control */}
+      <div className="absolute top-3.5 right-3.5 z-[1000] flex flex-col items-end gap-2">
+        <button
+          onClick={() => setShowLayersMenu((v) => !v)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface/90 hover:bg-surface backdrop-blur-md border border-border text-text shadow-lg transition-transform active:scale-95 font-display text-xs font-semibold"
+        >
+          <LayersIcon size={16} className="text-accent" />
+          <span>Map Controls</span>
+        </button>
+
+        {showLayersMenu && (
+          <div className="w-56 p-3 rounded-2xl bg-surface/95 backdrop-blur-md border border-border shadow-2xl text-xs font-display space-y-3 animate-fadeIn">
+            {/* Basemap selection */}
+            <div>
+              <div className="text-[10px] uppercase font-bold text-text-faint mb-1.5 tracking-wider">
+                Basemap
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {(Object.keys(BASEMAPS) as BaseMapType[]).map((bm) => (
+                  <button
+                    key={bm}
+                    onClick={() => setBasemap(bm)}
+                    className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                      basemap === bm
+                        ? "bg-accent text-accent-text shadow-xs font-bold"
+                        : "bg-bg hover:bg-surface-raised text-text-muted border border-border"
+                    }`}
+                  >
+                    {bm === "satellite" ? "Sat" : bm === "osm" ? "Street" : "Dark"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Overlays toggle */}
+            <div className="border-t border-border pt-2.5 space-y-2">
+              <div className="text-[10px] uppercase font-bold text-text-faint tracking-wider">
+                Layers & Overlays
+              </div>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-text">Lease Boundaries</span>
+                <input
+                  type="checkbox"
+                  checked={showLeases}
+                  onChange={(e) => setShowLeases(e.target.checked)}
+                  className="rounded accent-accent"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-text">Trigger Markers</span>
+                <input
+                  type="checkbox"
+                  checked={showTriggers}
+                  onChange={(e) => setShowTriggers(e.target.checked)}
+                  className="rounded accent-accent"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-text">Disturbance Polygons</span>
+                <input
+                  type="checkbox"
+                  checked={showPolygons}
+                  onChange={(e) => setShowPolygons(e.target.checked)}
+                  className="rounded accent-accent"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Live Coordinates & GIS Readout HUD */}
+      <div className="absolute bottom-3.5 left-3.5 z-[1000] flex items-center gap-2 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-white shadow-xl text-xs font-display">
+        <CrosshairIcon size={14} className="text-accent shrink-0" />
+        <span className="font-semibold tracking-wide">
+          {formatCoordinates(cursorCoords.lat, cursorCoords.lon, 4)}
+        </span>
+        <span className="text-white/50 text-[10px]">Z:{cursorCoords.zoom}</span>
+        <button
+          onClick={handleCopyCurrent}
+          className="p-1 rounded hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+          title="Copy cursor coordinates"
+        >
+          {copiedCoord ? <CheckIcon size={12} className="text-green-400" /> : <CopyIcon size={12} />}
+        </button>
+      </div>
+    </div>
   );
 }

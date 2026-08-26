@@ -37,10 +37,11 @@ const BASEMAPS: Record<BaseMapType, { name: string; url: string; attribution: st
   },
   dark: {
     name: "Dark Canvas",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    maxZoom: 20,
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+    maxZoom: 16,
   },
+
 };
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
@@ -182,8 +183,8 @@ export default function MapView({
         {showLabels && basemap === "dark" && (
           <TileLayer
             key="dark-labels"
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
-            maxZoom={20}
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={16}
             opacity={0.95}
             zIndex={10}
           />
@@ -238,19 +239,39 @@ export default function MapView({
                 }}
                 eventHandlers={{ click: () => onSelectSite(site.cluster_id) }}
               >
-                <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
-                  <div className="font-display text-xs p-1 space-y-0.5">
-                    <div className="font-bold text-white flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: meta.color }} />
-                      Site {String(site.cluster_id).padStart(2, "0")}
+                <Tooltip direction="top" offset={[0, -10]} opacity={0.98}>
+                  <div className="font-display text-xs p-1 space-y-1 min-w-[170px]">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/80 pb-1">
+                      <span className="font-bold text-text flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                        Site {String(site.cluster_id).padStart(2, "0")}
+                      </span>
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider"
+                        style={{ background: meta.bg, color: meta.color }}
+                      >
+                        {meta.label}
+                      </span>
                     </div>
-                    <div className="text-white/80">{site.member_count} detections &middot; {formatArea(site.total_disturbance_area_m2)}</div>
-                    <div className="text-[10px] text-white/60">{formatCoordinates(site.centroid.lat, site.centroid.lon, 4)}</div>
+                    <div className="text-text font-medium text-xs">
+                      {site.member_count} trigger{site.member_count === 1 ? "" : "s"} &middot; {formatArea(site.total_disturbance_area_m2)}
+                    </div>
+                    <div className="text-[10px] text-text-muted flex items-center gap-1">
+                      <span>📍</span>
+                      <span>Dantewada, Chhattisgarh</span>
+                    </div>
+                    <div className="text-[10px] text-text-faint font-mono">
+                      {formatCoordinates(site.centroid.lat, site.centroid.lon, 4)}
+                    </div>
+                    <div className="text-[9px] text-accent font-semibold pt-0.5">
+                      Click to focus site
+                    </div>
                   </div>
                 </Tooltip>
               </CircleMarker>
             );
           })}
+
 
         {/* Detailed Trigger Points & Polygons across all or selected site */}
         {showPolygons &&

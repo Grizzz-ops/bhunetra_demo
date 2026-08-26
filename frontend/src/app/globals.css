@@ -140,6 +140,34 @@ body {
   line-height: 1.4;
 }
 
+/* Leaflet Dark Tooltips with crisp contrast */
+.leaflet-tooltip,
+.leaflet-tooltip-top,
+.leaflet-tooltip-bottom,
+.leaflet-tooltip-left,
+.leaflet-tooltip-right {
+  background-color: #12161a !important;
+  color: #edf1f4 !important;
+  border: 1px solid #333d47 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.75) !important;
+  padding: 6px 10px !important;
+}
+
+.leaflet-tooltip-top:before {
+  border-top-color: #12161a !important;
+}
+.leaflet-tooltip-bottom:before {
+  border-bottom-color: #12161a !important;
+}
+.leaflet-tooltip-left:before {
+  border-left-color: #12161a !important;
+}
+.leaflet-tooltip-right:before {
+  border-right-color: #12161a !important;
+}
+
+
 /* Pulsing ring for a breaching/critical SLA -- legible from across the room */
 @keyframes pulse-ring {
   0% {

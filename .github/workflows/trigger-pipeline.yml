@@ -1,0 +1,42 @@
+name: Daily Trigger Pipeline
+
+# Runs the detection -> scoring -> ingest pipeline against the checked-in
+# demo imagery (real_data/*.tif) and posts each scored trigger to the live
+# API. This does NOT run on Railway on purpose: rasterio/geopandas/cv2
+# would bloat the API's deploy image, and Railway's process model won't
+# reliably keep a long-lived scheduler alive. GitHub Actions' own cron
+# scheduler runs this instead, on a fresh checkout each time.
+#
+# Idempotent by design: the same demo data hashes to the same trigger_id
+# every run, so a repeat run mostly gets HTTP 409 (already ingested) from
+# every trigger -- seed_backend.py treats that as success, not failure.
+
+on:
+  schedule:
+    # 03:00 UTC daily (08:30 IST)
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}   # manual "Run workflow" button for the demo
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run detection
+        run: python detection.py
+
+      - name: Score triggers
+        run: python score_triggers.py
+
+      - name: POST scored triggers to the live API
+        run: python seed_backend.py --live

@@ -1,3 +1,4 @@
+import json
 import os
 from dotenv import load_dotenv
 
@@ -11,7 +12,7 @@ from typing import Dict, Any
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
@@ -166,11 +167,17 @@ async def lifespan(app: FastAPI):
 # ==========================================
 app = FastAPI(title="BHUNETRA Spatial API", lifespan=lifespan)
 
-# Allow Pair C (Frontend) to fetch data without CORS blocks
+# Allow Pair C (Frontend) to fetch data without CORS blocks.
+# allow_origins=["*"] + allow_credentials=True is spec-invalid (browsers must
+# reject a wildcard origin on a credentialed request) and some browsers will
+# silently drop the response. Auth here is a Bearer token in the
+# Authorization header, not a cookie, so credentials aren't needed —
+# dropping allow_credentials keeps the wildcard origin working for Pair C
+# without hitting that browser-side rejection.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -214,7 +221,6 @@ def get_current_officer(
 # ==========================================
 # 6. FASTAPI ENDPOINTS
 # ==========================================
-
 @app.post("/api/v1/triggers")
 def ingest_trigger(payload: TriggerPayload, db: Session = Depends(get_db)):
     """Pair A (Data Pipeline) uses this to insert detected anomalies."""
@@ -284,6 +290,9 @@ def get_alerts(db: Session = Depends(get_db)):
 @app.post("/api/v1/simulate/advance-sla")
 def advance_time(db: Session = Depends(get_db)):
     """The Demo "Time-Travel" Hack: Forces all pending SLAs to expire immediately."""
+    # Intentionally unauthenticated: demo-only control to skip the 48h SLA
+    # wait during the hackathon walkthrough. Do not carry this endpoint
+    # (or its lack of auth) into any non-demo deployment.
     
     past_time = datetime.utcnow() - timedelta(hours=49)
     
@@ -371,6 +380,46 @@ def officer_action(
         "new_status": request.new_status,
         "updated_by": current_officer["officer_id"]
     }
+
+@app.get("/api/v1/leases")
+def get_lease_boundaries(db: Session = Depends(get_db)):
+    """Pair C (Frontend) uses this to draw legal lease-boundary polygons on
+    the map. Restored after it was dropped in the widened-schema rewrite —
+    it's independent of the trigger/alert legality work (that now lives in
+    TriggerPayload.legality_assessment instead of the old inline
+    run_legal_check()/legal_status columns, which stay removed)."""
+
+    leases = db.execute(text("""
+        SELECT
+            id,
+            source,
+            lessee_name,
+            mineral_type,
+            status,
+            ST_AsGeoJSON(geometry) as geom_json
+        FROM leases
+        LIMIT 500;
+    """)).fetchall()
+
+    feature_collection = {"type": "FeatureCollection", "features": []}
+
+    for lease in leases:
+        if lease.geom_json is None:
+            continue
+        feature_collection["features"].append({
+            "type": "Feature",
+            "geometry": json.loads(lease.geom_json),
+            "properties": {
+                "id": lease.id,
+                "source": lease.source,
+                "lessee_name": lease.lessee_name,
+                "mineral_type": lease.mineral_type,
+                "status": lease.status,
+            }
+        })
+
+    return feature_collection
+
 # ==========================================
 # 7. LOCAL SERVER RUNNER
 # ==========================================

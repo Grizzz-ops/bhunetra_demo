@@ -1,5 +1,9 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
+
+# Load variables from the .env file into the system environment, same as main.py
+load_dotenv()
 
 # Put your connection string here if DATABASE_URL isn't set in CMD
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/dbname")
@@ -17,17 +21,17 @@ try:
         print(f"  [+] {col}")
 
     required = [
-        "trigger_id", "site_id", "confidence_score", "confidence_tier", 
-        "boundary_status", "sar_change_score", "disturbance_area_m2", 
-        "ntl_delta", "legality_flag", "legality_assessment"
+        "trigger_id", "site_id", "change_pct", "confidence_score", "confidence_tier",
+        "boundary_status", "sar_change_score", "sar_mean_abs_change_db",
+        "disturbance_area_m2", "ntl_delta", "legality_flag", "legality_assessment"
     ]
 
     missing = [f for f in required if f not in columns]
 
     if not missing:
-        print("\n✅ VERIFIED: All 10 widened fields exist in PostgreSQL!")
+        print("\nVERIFIED: All 12 widened fields exist in PostgreSQL!")
     else:
-        print(f"\n❌ MISSING FIELDS: {missing}")
+        print(f"\nMISSING FIELDS: {missing}")
 
 except Exception as e:
-    print(f"\n❌ Connection Failed: {e}")
+    print(f"\nConnection Failed: {e}")

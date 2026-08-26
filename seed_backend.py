@@ -1,33 +1,47 @@
 """
-BhuNetra — seed the live backend (Railway) with our real Bailadila triggers.
+BhuNetra — seed the live backend (Railway) with our scored triggers.
 
-Reads output/triggers_scored.json and POSTs each of the 9 triggers to
-POST /api/v1/triggers on the live backend, in the exact schema main.py's
-TriggerPayload expects:
-
-    class TriggerPayload(BaseModel):
-        location_name: str
-        risk_score: float
-        geojson_polygon: Dict[str, Any]  # raw GeoJSON geometry, not a Feature
+Reads output/triggers_scored.json (written by score_triggers.py) and POSTs
+each trigger to POST /api/v1/triggers on the live backend, in the exact
+widened schema main.py's TriggerPayload expects. Most fields
+(trigger_id, site_id, change_pct, boundary_status, sar_change_score,
+sar_mean_abs_change_db, confidence_score, confidence_tier,
+disturbance_area_m2, ntl_delta, legality_flag, legality_assessment) are a
+1:1 passthrough of score_triggers.py's output -- the field names already
+match. Three fields TriggerPayload requires that the scoring pipeline
+doesn't produce are synthesized here:
+  - location_name: built from the site label + trigger_id
+  - risk_score: legacy 0-100 field kept for the existing map UI; see
+    SCALE NOTE below
+  - geojson_polygon: the pipeline only emits a point centroid, so this
+    wraps it in a small square polygon (see square_polygon())
 
 SCALE NOTE (flagged explicitly, not assumed): main.py's TriggerPayload
 declares risk_score as a bare `float` -- nothing in the schema enforces a
 0-1 or 0-100 range. The existing live sample data ("Sample Region Alpha",
 "Singrauli Test Site") uses 0-100 (confirmed by querying GET /api/v1/alerts
-directly: risk_score 92.5 and 91.0), while our confidence_score is 0-1
-(range 0.292-0.506 for these 9 triggers). This script converts by
-multiplying by 100 so new alerts don't display as broken outliers next to
-the existing samples -- that's a judgment call based on observed data, not
-something the backend schema requires or validates.
+directly: risk_score 92.5 and 91.0), while confidence_score is 0-1. This
+script converts by multiplying by 100 so new alerts don't display as
+broken outliers next to the existing samples -- a judgment call based on
+observed data, not something the backend schema requires or validates.
+confidence_score can be None (SAR_UNAVAILABLE triggers) -- falls back to
+change_pct in that case, since that's always present.
 
-Only ADDS new alerts via POST -- never touches the 2 existing sample rows.
+Only ADDS new alerts via POST -- never touches existing rows. A 409
+(duplicate trigger_id -- see main.py's IntegrityError handling) means this
+trigger was already ingested on a previous run and is treated as success,
+not failure -- this is what lets the daily GitHub Actions job re-run
+against the same static demo imagery without failing on days it finds
+nothing new.
 
 Safety: defaults to a dry run (prints payloads, sends nothing). Pass --live
-to actually POST.
+to actually POST. Exits non-zero if any POST fails with something other
+than 200/201/409, so a CI job picks up real failures.
 """
 import argparse
 import json
 import math
+import sys
 
 import requests
 
@@ -63,10 +77,24 @@ def square_polygon(lat, lon, half_side_m=POLYGON_HALF_SIDE_M):
 
 
 def build_payload(trigger):
+    risk_basis = trigger["confidence_score"] if trigger["confidence_score"] is not None \
+        else trigger["change_pct"] / 100
     return {
         "location_name": f"{SITE_LABEL} — {trigger['trigger_id']}",
-        "risk_score": round(trigger["confidence_score"] * RISK_SCORE_SCALE, 1),
+        "risk_score": round(risk_basis * RISK_SCORE_SCALE, 1),
         "geojson_polygon": square_polygon(trigger["lat"], trigger["lon"]),
+        "trigger_id": trigger["trigger_id"],
+        "site_id": trigger["site_id"],
+        "change_pct": trigger["change_pct"],
+        "boundary_status": trigger["boundary_status"],
+        "sar_change_score": trigger["sar_change_score"],
+        "sar_mean_abs_change_db": trigger["sar_mean_abs_change_db"],
+        "confidence_score": trigger["confidence_score"],
+        "confidence_tier": trigger["confidence_tier"],
+        "disturbance_area_m2": trigger["disturbance_area_m2"],
+        "ntl_delta": trigger["ntl_delta"],
+        "legality_flag": trigger["legality_flag"],
+        "legality_assessment": trigger["legality_assessment"],
     }
 
 
@@ -88,9 +116,20 @@ def main():
         return
 
     print(f"Sending {len(payloads)} trigger(s) to {TRIGGERS_ENDPOINT} ...\n")
+    failures = []
     for p in payloads:
         resp = requests.post(TRIGGERS_ENDPOINT, json=p, timeout=30)
-        print(f"  {p['location_name']}  ->  HTTP {resp.status_code}  {resp.text}")
+        if resp.status_code == 409:
+            print(f"  {p['trigger_id']}  ->  HTTP 409 (already ingested, skipping)")
+        elif resp.status_code in (200, 201):
+            print(f"  {p['trigger_id']}  ->  HTTP {resp.status_code}  {resp.text}")
+        else:
+            print(f"  {p['trigger_id']}  ->  HTTP {resp.status_code}  {resp.text}  <-- FAILED")
+            failures.append((p['trigger_id'], resp.status_code, resp.text))
+
+    if failures:
+        print(f"\n{len(failures)} trigger(s) failed to ingest.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

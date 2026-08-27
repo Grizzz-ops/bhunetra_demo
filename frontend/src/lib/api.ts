@@ -2,8 +2,8 @@ import type {
   AlertsResponse,
   BriefResponse,
   ActionResponse,
-  AuditLogEntry,
   AuditLogsResponse,
+  ImageryManifest,
   LeasesResponse,
   LoginResponse,
   SitesResponse,
@@ -16,8 +16,6 @@ import type {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "https://bhunetra-demo-rosy.vercel.app";
-
-const LOCAL_AUDIT_KEY = "bhunetra.audit_logs";
 
 export class ApiError extends Error {
   status: number;
@@ -90,47 +88,11 @@ async function request<T>(
   return resp.json() as Promise<T>;
 }
 
-export async function login(email: string, password: string) {
-  try {
-    return await request<LoginResponse>("/api/v1/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-  } catch (err) {
-    const normalized = email.trim().toLowerCase();
-    if (
-      (normalized === "dgm@bhunetra.gov.in" && (password === "dgm123" || password === "dgm@123")) ||
-      (normalized === "dgm.admin@bhunetra.gov.in" && (password === "dgm@123" || password === "dgm123")) ||
-      (normalized === "dgm@bhunetra.demo" && password === "dgm123")
-    ) {
-      return {
-        access_token: "mock-dgm-token-2026",
-        token_type: "bearer",
-        role: "DGM_ADMIN",
-        name: "Priya Sharma (DGM Director)",
-      };
-    }
-    if (
-      (normalized === "officer@bhunetra.gov.in" && password === "officer123") ||
-      (normalized === "field@bhunetra.demo" && password === "field123")
-    ) {
-      return {
-        access_token: "mock-field-token-2026",
-        token_type: "bearer",
-        role: "FIELD_OFFICER",
-        name: "Field Officer Rajesh Kumar",
-      };
-    }
-    if (normalized === "ibm@bhunetra.demo" && password === "ibm123") {
-      return {
-        access_token: "mock-ibm-token-2026",
-        token_type: "bearer",
-        role: "DGM_ADMIN",
-        name: "Anil Mishra (IBM Director)",
-      };
-    }
-    throw err;
-  }
+export function login(email: string, password: string) {
+  return request<LoginResponse>("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
 }
 
 
@@ -153,79 +115,25 @@ export function generateBrief(alertId: number, token: string) {
   });
 }
 
-// Initial baseline mock audit logs to showcase history
-const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
-
-export function getLocalAuditLogs(): AuditLogEntry[] {
-  if (typeof window === "undefined") return INITIAL_AUDIT_LOGS;
-  try {
-    const raw = window.localStorage.getItem(LOCAL_AUDIT_KEY);
-    if (!raw) {
-      window.localStorage.setItem(LOCAL_AUDIT_KEY, JSON.stringify(INITIAL_AUDIT_LOGS));
-      return INITIAL_AUDIT_LOGS;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return INITIAL_AUDIT_LOGS;
-  }
+export function getAuditLogs(token: string): Promise<AuditLogsResponse> {
+  return request<AuditLogsResponse>("/api/v1/audit-logs", { token });
 }
 
-export function appendLocalAuditLog(entry: AuditLogEntry): void {
-  if (typeof window === "undefined") return;
-  try {
-    const logs = getLocalAuditLogs();
-    const updated = [entry, ...logs.filter((l) => l.id !== entry.id)];
-    window.localStorage.setItem(LOCAL_AUDIT_KEY, JSON.stringify(updated));
-  } catch {
-    // best-effort
-  }
+export function getAlertImagery(alertId: number, token: string) {
+  return request<ImageryManifest>(`/api/v1/alerts/${alertId}/imagery`, { token });
 }
 
-export async function getAuditLogs(token: string): Promise<AuditLogsResponse> {
-  try {
-    return await request<AuditLogsResponse>("/api/v1/audit-logs", { token });
-  } catch {
-    // Fallback to local persistent audit log store
-    return { audit_logs: getLocalAuditLogs() };
-  }
-}
-
-export async function updateAlertAction(
+export function updateAlertAction(
   alertId: number,
   newStatus: AlertStatus,
   notes: string,
-  token: string,
-  extra?: { triggerId?: string | null; locationName?: string; officerName?: string; officerId?: number | null; previousStatus?: AlertStatus }
+  token: string
 ) {
-  let res: ActionResponse;
-  try {
-    res = await request<ActionResponse>(`/api/v1/alerts/${alertId}/action`, {
-      method: "PATCH",
-      token,
-      body: JSON.stringify({ new_status: newStatus, notes }),
-    });
-  } catch (err) {
-    // If backend patch succeeds or even if local test, log action locally
-    throw err;
-  }
-
-  // Record audit log entry
-  const entry: AuditLogEntry = {
-    id: Date.now(),
-    alert_id: alertId,
-    trigger_id: extra?.triggerId,
-    location_name: extra?.locationName,
-    officer_id: res.updated_by ?? extra?.officerId ?? 1,
-    officer_name: extra?.officerName ?? "Current Officer",
-    previous_status: res.previous_status ?? extra?.previousStatus ?? "PENDING_OFFICER",
-    new_status: res.new_status ?? newStatus,
-    action: "STATUS_UPDATED",
-    notes,
-    timestamp: new Date().toISOString(),
-  };
-  appendLocalAuditLog(entry);
-
-  return res;
+  return request<ActionResponse>(`/api/v1/alerts/${alertId}/action`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ new_status: newStatus, notes }),
+  });
 }
 
 export async function updateAlertSla(

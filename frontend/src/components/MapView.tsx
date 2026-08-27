@@ -245,7 +245,7 @@ export default function MapView({
                 <div className="font-display text-xs p-1">
                   <div className="font-bold text-emerald-400">LEGAL MINING LEASE</div>
                   <div className="text-white">{lease.properties.lessee_name ?? `Lease #${lease.properties.id}`}</div>
-                  <div className="text-white/70">{lease.properties.mineral_type ?? "Iron Ore"} &middot; {lease.properties.status}</div>
+                  <div className="text-white/70">{lease.properties.mineral_type ?? "—"} &middot; {lease.properties.status}</div>
                 </div>
               </Tooltip>
             </Polygon>

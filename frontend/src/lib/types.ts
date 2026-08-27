@@ -119,6 +119,27 @@ export interface AuditLogsResponse {
   audit_logs: AuditLogEntry[];
 }
 
+export interface ImageryBand {
+  id: string;
+  title: string;
+  badge: string;
+  badge_color: string;
+  sensor: string;
+  resolution: string;
+  description: string;
+  before?: string;
+  after?: string;
+  diff?: string;
+  composite?: string;
+  has_comparison: boolean;
+}
+
+export interface ImageryManifest {
+  alert_id: number;
+  aoi: string | null;
+  bands: ImageryBand[];
+}
+
 export type DashboardViewMode = "sites" | "triggers" | "map";
 
 export interface LeaseFeature {

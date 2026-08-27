@@ -20,7 +20,7 @@ import { LayersIcon, CopyIcon, CheckIcon, CrosshairIcon, InfoIcon } from "./icon
 
 
 
-const DEFAULT_CENTER: LatLngTuple = [18.66, 81.23]; // Bailadila AOI fallback
+const DEFAULT_CENTER: LatLngTuple = [18.6585, 81.2305]; // Bailadila AOI center
 
 type BaseMapType = "satellite" | "osm" | "dark";
 
@@ -57,11 +57,12 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
   const map = useMap();
   useEffect(() => {
     if (bounds) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
   }, [bounds, map]);
   return null;
 }
+
 
 function LiveCoordinateTracker({ onCoordChange }: { onCoordChange: (lat: number, lon: number, zoom: number) => void }) {
   const map = useMapEvents({
@@ -108,10 +109,23 @@ export default function MapView({
   const [copiedCoord, setCopiedCoord] = useState(false);
 
   const initialBounds = useMemo<LatLngBoundsExpression | null>(() => {
-    const points: LatLngTuple[] = sites.map((s) => [s.centroid.lat, s.centroid.lon]);
-    if (points.length === 0) return null;
-    return points as LatLngBoundsExpression;
-  }, [sites]);
+    const pts: LatLngTuple[] = [];
+    for (const a of alerts) {
+      for (const ring of polygonToLatLngs(a.geometry)) {
+        for (const p of ring as LatLngTuple[]) pts.push(p);
+      }
+    }
+    for (const l of leases) {
+      for (const ring of polygonToLatLngs(l.geometry)) {
+        for (const p of ring as LatLngTuple[]) pts.push(p);
+      }
+    }
+    if (pts.length === 0) {
+      const points: LatLngTuple[] = sites.map((s) => [s.centroid.lat, s.centroid.lon]);
+      return points.length ? (points as LatLngBoundsExpression) : null;
+    }
+    return pts as LatLngBoundsExpression;
+  }, [alerts, leases, sites]);
 
   const selectedSiteMembers = useMemo(
     () => (selectedSiteId != null ? alerts.filter((a) => a.properties.cluster_id === selectedSiteId) : []),
@@ -157,7 +171,8 @@ export default function MapView({
 
       <MapContainer
         center={DEFAULT_CENTER}
-        zoom={13}
+        zoom={14}
+
         maxZoom={19}
         minZoom={4}
         className="h-full w-full z-0"

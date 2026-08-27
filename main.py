@@ -420,15 +420,7 @@ def get_alerts(db: Session = Depends(get_db)):
     alerts = db.query(Alert).all()
     feature_collection = {"type": "FeatureCollection", "features": []}
 
-    now = datetime.utcnow()
-    updated = False
     for alert in alerts:
-        # If alert is PENDING_OFFICER but deadline is in past or null, assign fresh future deadline
-        if alert.status == "PENDING_OFFICER" and (not alert.sla_deadline or alert.sla_deadline <= now):
-            hours = 24 if alert.legality_flag == "POTENTIAL_VIOLATION" else 48
-            alert.sla_deadline = now + timedelta(hours=hours)
-            updated = True
-
         shapely_geom = to_shape(alert.geometry)
         geom_geojson = mapping(shapely_geom)
 
@@ -452,21 +444,14 @@ def get_alerts(db: Session = Depends(get_db)):
                 "legality_flag": alert.legality_flag,
                 "legality_assessment": alert.legality_assessment,
                 "status": alert.status,
-                "sla_deadline": alert.sla_deadline.isoformat() if alert.sla_deadline else (now + timedelta(hours=48)).isoformat(),
+                "sla_deadline": alert.sla_deadline.isoformat(),
                 "brief_text": alert.brief_text,
                 "brief_generated_at": alert.brief_generated_at.isoformat() if alert.brief_generated_at else None,
             }
         }
         feature_collection["features"].append(feature)
 
-    if updated:
-        try:
-            db.commit()
-        except Exception:
-            db.rollback()
-
     return feature_collection
-
 
 
 @app.post("/api/v1/simulate/advance-sla")
@@ -605,11 +590,8 @@ def officer_action(
 
     # Update the status
     alert.status = request.new_status
-    if request.new_status == "PENDING_OFFICER":
-        alert.sla_deadline = datetime.utcnow() + timedelta(hours=48)
 
     # Write to audit log — permanent record of this action
-
     db.add(AuditLog(
         alert_id=alert_id,
         officer_id=current_officer["officer_id"],

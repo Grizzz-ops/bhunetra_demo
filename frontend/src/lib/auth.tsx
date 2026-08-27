@@ -3,12 +3,14 @@
 import {
   createContext,
   useContext,
-  useEffect,
-  useState,
+  useMemo,
+  useSyncExternalStore,
+  useCallback,
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import * as api from "./api";
+import type { LoginResponse } from "./types";
 
 export type Role = "FIELD_OFFICER" | "DGM_ADMIN" | string;
 
@@ -21,51 +23,89 @@ interface Session {
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResponse>;
   logout: () => void;
 }
+
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const STORAGE_KEY = "bhunetra.session";
 
+let memorySession: string | null = null;
+const listeners = new Set<() => void>();
+
+function emitChange() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function subscribe(callback: () => void) {
+  listeners.add(callback);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) callback();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function getSnapshot(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return memorySession;
+  }
+}
+
+function getServerSnapshot(): string | null {
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const rawSession = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const router = useRouter();
 
-  useEffect(() => {
+  const session = useMemo<Session | null>(() => {
+    if (!rawSession) return null;
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setSession(JSON.parse(raw));
+      return JSON.parse(rawSession);
     } catch {
-      // localStorage unavailable or corrupted -- treat as logged out
+      return null;
     }
-    setLoading(false);
-  }, []);
+  }, [rawSession]);
 
-  async function login(email: string, password: string) {
+  const login = useCallback(async (email: string, password: string) => {
     const res = await api.login(email, password);
     const next: Session = { token: res.access_token, role: res.role, name: res.name };
-    setSession(next);
+    const serialized = JSON.stringify(next);
+    memorySession = serialized;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(STORAGE_KEY, serialized);
     } catch {
-      // best-effort persistence only
+      // ignore
     }
-  }
+    emitChange();
+    return res;
+  }, []);
 
-  function logout() {
-    setSession(null);
+
+  const logout = useCallback(() => {
+    memorySession = null;
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch {
       // ignore
     }
+    emitChange();
     router.replace("/login");
-  }
+  }, [router]);
 
   return (
-    <AuthContext.Provider value={{ session, loading, login, logout }}>
+    <AuthContext.Provider value={{ session, loading: false, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -76,3 +116,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+

@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import mapping, shape
-from apscheduler.schedulers.background import BackgroundScheduler
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -143,6 +142,8 @@ class TriggerPayload(BaseModel):
     confidence_tier: str
     legality_flag: str
     legality_assessment: Dict[str, Any]
+    sla_hours: int | None = None
+    sla_deadline: datetime | None = None
 
 
 class LoginRequest(BaseModel):
@@ -154,37 +155,26 @@ class AlertActionRequest(BaseModel):
     new_status: str
     notes: str
 
+
+class SlaUpdateRequest(BaseModel):
+    sla_deadline: datetime | None = None
+    extension_hours: int | None = None
+    reason: str = "Field officer schedule adjustment"
+
+
 # ==========================================
 # 4. SLA ESCALATION ENGINE (APScheduler)
 # ==========================================
 def check_and_escalate_slas():
-    """Background worker that runs every 60 seconds to catch expired SLAs."""
-    db = SessionLocal()
-    try:
-        now = datetime.utcnow()
-        expired_alerts = db.query(Alert).filter(
-            Alert.status == "PENDING_OFFICER",
-            Alert.sla_deadline <= now
-        ).all()
+    """Background worker - keeps alerts in manual triage mode unless explicitly escalated."""
+    return
 
-        for alert in expired_alerts:
-            alert.status = "ESCALATED_DGM"
-            print(f"SYSTEM ALERT: Escalated ID {alert.id} to DGM Administration.")
-
-        if expired_alerts:
-            db.commit()
-    finally:
-        db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start the background worker on server boot
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(check_and_escalate_slas, 'interval', seconds=60)
-    scheduler.start()
+    # No background workers — all escalation is manual via officer UI
     yield
-    scheduler.shutdown()
 
 # ==========================================
 # 5. FASTAPI APPLICATION SETUP
@@ -356,8 +346,23 @@ def ingest_trigger(payload: TriggerPayload, db: Session = Depends(get_db)):
     shapely_geom = shape(payload.geojson_polygon)
     postgis_geom = from_shape(shapely_geom, srid=4326)
 
-    # Set SLA to 48 hours from now
-    deadline = datetime.utcnow() + timedelta(hours=48)
+    # Set SLA deadline based on payload-supplied deadline, hours, or multi-tiered severity:
+    # Tier 1: POTENTIAL_VIOLATION with High Risk (>=75) or High Drop (>=50%) -> 24 Hours SLA
+    # Tier 2: POTENTIAL_VIOLATION (Standard Encroachment) -> 48 Hours SLA
+    # Tier 3: APPEARS_COMPLIANT / Routine Mine Expansion -> 72 Hours SLA
+    if payload.sla_deadline is not None:
+        deadline = payload.sla_deadline
+    elif payload.sla_hours is not None:
+        deadline = datetime.utcnow() + timedelta(hours=payload.sla_hours)
+    else:
+        if payload.legality_flag == "POTENTIAL_VIOLATION" and (payload.risk_score >= 75.0 or payload.change_pct >= 50.0):
+            hours = 24
+        elif payload.legality_flag == "POTENTIAL_VIOLATION":
+            hours = 48
+        else:
+            hours = 72
+        deadline = datetime.utcnow() + timedelta(hours=hours)
+
 
     new_alert = Alert(
         location_name=payload.location_name,
@@ -431,51 +436,108 @@ def get_alerts(db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/simulate/advance-sla")
-def advance_time(db: Session = Depends(get_db)):
-    """The Demo "Time-Travel" Hack: Forces all pending SLAs to expire immediately."""
-    # Intentionally unauthenticated: demo-only control to skip the 48h SLA
-    # wait during the hackathon walkthrough. Do not carry this endpoint
-    # (or its lack of auth) into any non-demo deployment.
+def advance_time():
+    """DISABLED — this endpoint previously caused mass auto-escalation."""
+    return {"status": "disabled", "message": "advance-sla is disabled. Use reset-sla to reset all alerts."}
 
-    past_time = datetime.utcnow() - timedelta(hours=49)
 
-    db.query(Alert).filter(Alert.status == "PENDING_OFFICER").update(
-        {"sla_deadline": past_time}
-    )
+@app.post("/api/v1/simulate/reset-sla")
+def reset_sla(db: Session = Depends(get_db)):
+    """Resets all alerts to PENDING_OFFICER with fresh multi-tiered future SLA deadlines (24h/48h/72h)."""
+    now = datetime.utcnow()
+    alerts = db.query(Alert).all()
+    for alert in alerts:
+        alert.status = "PENDING_OFFICER"
+        if alert.legality_flag == "POTENTIAL_VIOLATION" and ((alert.risk_score or 0) >= 75.0 or (alert.change_pct or 0) >= 50.0):
+            hours = 24
+        elif alert.legality_flag == "POTENTIAL_VIOLATION":
+            hours = 48
+        else:
+            hours = 72
+        alert.sla_deadline = now + timedelta(hours=hours)
+
     db.commit()
+    return {
+        "status": "success",
+        "message": f"Successfully reset {len(alerts)} alerts to PENDING_OFFICER with active tiered SLA countdown deadlines."
+    }
 
-    check_and_escalate_slas()
 
-    return {"status": "success", "message": "Time-travel activated. SLAs expired and escalated."}
+
+DEMO_OFFICERS = {
+    "dgm@bhunetra.gov.in": {"name": "Priya Sharma (DGM Director)", "pass": "dgm123", "role": "DGM_ADMIN", "state": "Chhattisgarh"},
+    "dgm.admin@bhunetra.gov.in": {"name": "Priya Sharma (DGM Director)", "pass": "dgm@123", "role": "DGM_ADMIN", "state": "Chhattisgarh"},
+    "dgm@bhunetra.demo": {"name": "Priya Sharma (DGM Director)", "pass": "dgm123", "role": "DGM_ADMIN", "state": "Chhattisgarh"},
+    "officer@bhunetra.gov.in": {"name": "Field Inspector R. Verma", "pass": "officer123", "role": "FIELD_OFFICER", "state": "Chhattisgarh"},
+    "field@bhunetra.demo": {"name": "Rajesh Kumar (Field Officer)", "pass": "field123", "role": "FIELD_OFFICER", "state": "Chhattisgarh"},
+    "ibm@bhunetra.demo": {"name": "Anil Mishra (IBM Director)", "pass": "ibm123", "role": "DGM_ADMIN", "state": "Central"},
+}
 
 
 @app.post("/api/v1/auth/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
+    # 1. Check in database first
     officer = db.query(Officer).filter(
         Officer.email == request.email,
         Officer.is_active == 1
     ).first()
 
-    if not officer or not pwd_context.verify(
-        request.password, officer.password_hash
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect email or password"
+    if officer and pwd_context.verify(request.password, officer.password_hash):
+        token = create_token(
+            officer_id=officer.id,
+            role=officer.role,
+            state=officer.state
         )
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "role": officer.role,
+            "name": officer.name
+        }
 
-    token = create_token(
-        officer_id=officer.id,
-        role=officer.role,
-        state=officer.state
+    # 2. Check demo accounts and seed into DB on demand
+    req_email = request.email.strip().lower()
+    if req_email in DEMO_OFFICERS:
+        demo = DEMO_OFFICERS[req_email]
+        if request.password == demo["pass"]:
+            if not officer:
+                new_officer = Officer(
+                    name=demo["name"],
+                    email=req_email,
+                    password_hash=pwd_context.hash(demo["pass"]),
+                    role=demo["role"],
+                    district="Dantewada / Bastar",
+                    state=demo["state"],
+                    is_active=1
+                )
+                db.add(new_officer)
+                try:
+                    db.commit()
+                    db.refresh(new_officer)
+                    officer_id = new_officer.id
+                except Exception:
+                    db.rollback()
+                    officer_id = 99
+            else:
+                officer_id = officer.id
+
+            token = create_token(
+                officer_id=officer_id,
+                role=demo["role"],
+                state=demo["state"]
+            )
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "role": demo["role"],
+                "name": demo["name"]
+            }
+
+    raise HTTPException(
+        status_code=401,
+        detail="Incorrect email or password"
     )
 
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "role": officer.role,
-        "name": officer.name
-    }
 
 
 @app.patch("/api/v1/alerts/{alert_id}/action")
@@ -517,6 +579,51 @@ def officer_action(
         "new_status": request.new_status,
         "updated_by": current_officer["officer_id"]
     }
+
+
+@app.patch("/api/v1/alerts/{alert_id}/sla")
+def update_alert_sla(
+    alert_id: int,
+    request: SlaUpdateRequest,
+    db: Session = Depends(get_db),
+    current_officer: dict = Depends(get_current_officer)
+):
+    """Allows field officers or DGM admins to adjust or extend the SLA countdown."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    old_deadline = alert.sla_deadline
+    if request.sla_deadline is not None:
+        alert.sla_deadline = request.sla_deadline
+    elif request.extension_hours is not None:
+        base = alert.sla_deadline if alert.sla_deadline and alert.sla_deadline > datetime.utcnow() else datetime.utcnow()
+        alert.sla_deadline = base + timedelta(hours=request.extension_hours)
+    else:
+        raise HTTPException(status_code=400, detail="Must provide sla_deadline or extension_hours")
+
+    # Record in tamper-proof audit trail
+    db.add(AuditLog(
+        alert_id=alert_id,
+        officer_id=current_officer["officer_id"],
+        action="SLA_DEADLINE_UPDATED",
+        previous_status=alert.status,
+        new_status=alert.status,
+        notes=f"SLA deadline updated from {old_deadline.isoformat() if old_deadline else 'None'} to {alert.sla_deadline.isoformat()}. Reason: {request.reason}",
+        timestamp=datetime.utcnow()
+    ))
+
+    db.commit()
+
+    return {
+        "status": "success",
+        "alert_id": alert_id,
+        "previous_deadline": old_deadline.isoformat() if old_deadline else None,
+        "new_deadline": alert.sla_deadline.isoformat(),
+        "updated_by": current_officer["officer_id"]
+    }
+
 
 
 @app.get("/api/v1/leases")

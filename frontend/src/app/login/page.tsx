@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { AlertOctagonIcon } from "@/components/icons";
+import { AlertOctagonIcon, ShieldIcon, BuildingIcon, CheckIcon } from "@/components/icons";
 
 export default function LoginPage() {
   const { session, loading, login } = useAuth();
@@ -15,7 +15,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && session) router.replace("/dashboard");
+    if (!loading && session) {
+      if (session.role === "DGM_ADMIN") {
+        router.replace("/dgm");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
   }, [loading, session, router]);
 
   async function handleSubmit(e: FormEvent) {
@@ -23,13 +29,28 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
-      router.replace("/dashboard");
+      const res = await login(email.trim(), password);
+      if (res.role === "DGM_ADMIN") {
+        router.replace("/dgm");
+      } else {
+        router.replace("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleQuickFill(role: "field" | "dgm") {
+    if (role === "field") {
+      setEmail("field@bhunetra.demo");
+      setPassword("field123");
+    } else {
+      setEmail("dgm@bhunetra.gov.in");
+      setPassword("dgm123");
+    }
+    setError(null);
   }
 
   return (
@@ -39,23 +60,67 @@ export default function LoginPage() {
       </div>
 
       <div className="flex-1 grid place-items-center px-4 pb-16">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 text-center">
-            <div className="font-display text-3xl font-bold tracking-tight text-text">
-              BHUNETRA
+        <div className="w-full max-w-md">
+          <div className="mb-6 text-center">
+            <div className="inline-flex items-center gap-2 font-display text-3xl font-extrabold tracking-tight text-text">
+              <span className="text-accent">◈</span>
+              <span>BHUNETRA</span>
             </div>
             <div className="mt-1 text-sm text-text-muted">
-              Field Command &middot; Mining Enforcement
+              Spaceborne Mining Surveillance & Directorate Legal Action
             </div>
+          </div>
+
+          {/* Quick Credential Selectors */}
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleQuickFill("field")}
+              className={`p-3 rounded-xl border text-left transition-all active:scale-95 ${
+                email === "field@bhunetra.demo"
+                  ? "border-accent bg-surface-raised shadow-xs"
+                  : "border-border bg-surface hover:bg-surface-raised"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-display font-bold uppercase tracking-wide text-accent flex items-center gap-1">
+                  <ShieldIcon size={13} />
+                  Field Officer
+                </span>
+                {email === "field@bhunetra.demo" && <CheckIcon size={12} className="text-accent" />}
+              </div>
+              <div className="text-[11px] font-mono text-text truncate">field@bhunetra.demo</div>
+              <div className="text-[10px] text-text-faint">Pass: field123</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickFill("dgm")}
+              className={`p-3 rounded-xl border text-left transition-all active:scale-95 ${
+                email === "dgm@bhunetra.gov.in"
+                  ? "border-amber-500 bg-surface-raised shadow-xs"
+                  : "border-border bg-surface hover:bg-surface-raised"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-display font-bold uppercase tracking-wide text-amber-500 flex items-center gap-1">
+                  <BuildingIcon size={13} />
+                  DGM Admin
+                </span>
+                {email === "dgm@bhunetra.gov.in" && <CheckIcon size={12} className="text-amber-500" />}
+              </div>
+              <div className="text-[11px] font-mono text-text truncate">dgm@bhunetra.gov.in</div>
+              <div className="text-[10px] text-text-faint">Pass: dgm123</div>
+            </button>
           </div>
 
           <form
             onSubmit={handleSubmit}
-            className="rounded-xl border border-border bg-surface p-5 shadow-[var(--shadow)] space-y-4"
+            className="rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow)] space-y-4"
           >
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-xs font-display font-semibold uppercase tracking-wide text-text-muted">
-                Officer email
+                Official Government Email
               </label>
               <input
                 id="email"
@@ -64,14 +129,14 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border bg-bg px-3.5 py-3.5 text-base text-text outline-none focus:border-accent"
-                placeholder="you@bhunetra.demo"
+                className="w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-text outline-none focus:border-accent font-sans"
+                placeholder="officer@bhunetra.gov.in or dgm@bhunetra.gov.in"
               />
             </div>
 
             <div className="space-y-1.5">
               <label htmlFor="password" className="text-xs font-display font-semibold uppercase tracking-wide text-text-muted">
-                Password
+                Secure Access Key / Password
               </label>
               <input
                 id="password"
@@ -80,17 +145,17 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border bg-bg px-3.5 py-3.5 text-base text-text outline-none focus:border-accent"
+                className="w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-sm text-text outline-none focus:border-accent"
                 placeholder="••••••••"
               />
             </div>
 
             {error && (
               <div
-                className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm"
+                className="flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-medium"
                 style={{ borderColor: "var(--violation)", background: "var(--violation-bg)", color: "var(--violation)" }}
               >
-                <AlertOctagonIcon size={16} className="shrink-0" />
+                <AlertOctagonIcon size={15} className="shrink-0" />
                 {error}
               </div>
             )}
@@ -98,17 +163,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-lg bg-accent py-3.5 text-base font-display font-bold uppercase tracking-wide text-accent-text active:scale-[0.98] transition-transform disabled:opacity-60"
+              className="w-full rounded-xl bg-accent py-3.5 text-sm font-display font-bold uppercase tracking-wide text-accent-text active:scale-[0.98] transition-transform disabled:opacity-60 shadow-md hover:brightness-105"
             >
-              {submitting ? "Signing in…" : "Sign in"}
+              {submitting ? "Authenticating Session…" : "Enter Surveillance Terminal"}
             </button>
           </form>
 
           <p className="mt-4 text-center text-xs text-text-faint">
-            Field officer or DGM/IBM HQ reviewer credentials only.
+            Authorised for State Directorate of Geology & Mining (DGM) & Field Enforcers under MMDR Act 1957.
           </p>
         </div>
       </div>
     </div>
   );
 }
+

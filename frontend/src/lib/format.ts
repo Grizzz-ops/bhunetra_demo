@@ -53,9 +53,9 @@ export function formatDuration(ms: number): string {
 
 export function formatArea(m2: number | null | undefined): string {
   if (m2 == null) return "—";
-  if (m2 >= 10000) return `${(m2 / 10000).toFixed(2)} ha`;
   return `${Math.round(m2).toLocaleString()} m²`;
 }
+
 
 export function formatPercent(v: number | null | undefined, digits = 0): string {
   if (v == null) return "—";
@@ -80,6 +80,23 @@ export function formatDateTime(iso: string | null | undefined): string {
     return iso;
   }
 }
+
+export function formatDeadline(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("en-IN", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return iso;
+  }
+}
+
 
 export const LEGALITY_META: Record<
   string,

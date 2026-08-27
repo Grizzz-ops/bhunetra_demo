@@ -18,16 +18,16 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const STORAGE_KEY = "bhunetra.theme";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeChoice>("system");
-
-  useEffect(() => {
+  const [theme, setThemeState] = useState<ThemeChoice>(() => {
+    if (typeof window === "undefined") return "system";
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY) as ThemeChoice | null;
-      if (stored) setThemeState(stored);
+      return stored ?? "system";
     } catch {
-      // ignore
+      return "system";
     }
-  }, []);
+  });
+
 
   useEffect(() => {
     const root = document.documentElement;

@@ -1,7 +1,7 @@
 [
   {
     "trigger_id": "MSS-D4D2AA",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.66335,
     "lon": 81.22491,
     "change_pct": 40.4,
@@ -10,7 +10,9 @@
     "detected_at": "2026-08-22T05:34:19.302105+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 1243.3,
+    "nearest_road_type": "track",
+    "road_access_score": 0.257,
     "sar_change_score": 0.296,
     "sar_mean_abs_change_db": 2.368,
     "confidence_score": 0.366,
@@ -43,11 +45,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "POTENTIAL_VIOLATION"
+    "legality_flag": "POTENTIAL_VIOLATION",
+    "sla_hours": 48,
+    "sla_deadline": "2026-08-29T04:43:08.500877"
   },
   {
     "trigger_id": "MSS-C1FF79",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.66434,
     "lon": 81.22703,
     "change_pct": 35.8,
@@ -56,7 +60,9 @@
     "detected_at": "2026-08-22T05:34:19.302105+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 1203.6,
+    "nearest_road_type": "track",
+    "road_access_score": 0.296,
     "sar_change_score": 0.29,
     "sar_mean_abs_change_db": 2.32,
     "confidence_score": 0.334,
@@ -89,11 +95,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "POTENTIAL_VIOLATION"
+    "legality_flag": "POTENTIAL_VIOLATION",
+    "sla_hours": 48,
+    "sla_deadline": "2026-08-29T04:43:08.503004"
   },
   {
     "trigger_id": "MSS-7B3F18",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.66257,
     "lon": 81.2264,
     "change_pct": 35.1,
@@ -102,7 +110,9 @@
     "detected_at": "2026-08-22T05:34:19.303106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 1339.7,
+    "nearest_road_type": "service",
+    "road_access_score": 0.16,
     "sar_change_score": 0.403,
     "sar_mean_abs_change_db": 3.226,
     "confidence_score": 0.369,
@@ -135,11 +145,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "POTENTIAL_VIOLATION"
+    "legality_flag": "POTENTIAL_VIOLATION",
+    "sla_hours": 48,
+    "sla_deadline": "2026-08-29T04:43:08.504639"
   },
   {
     "trigger_id": "MSS-AB4283",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.65989,
     "lon": 81.23108,
     "change_pct": 48.4,
@@ -148,7 +160,9 @@
     "detected_at": "2026-08-22T05:34:19.304106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 800.5,
+    "nearest_road_type": "service",
+    "road_access_score": 0.7,
     "sar_change_score": 0.547,
     "sar_mean_abs_change_db": 4.38,
     "confidence_score": 0.506,
@@ -181,11 +195,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "APPEARS_COMPLIANT"
+    "legality_flag": "APPEARS_COMPLIANT",
+    "sla_hours": 72,
+    "sla_deadline": "2026-08-30T04:43:08.507356"
   },
   {
     "trigger_id": "MSS-E0A54D",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.65699,
     "lon": 81.22695,
     "change_pct": 49.6,
@@ -194,7 +210,9 @@
     "detected_at": "2026-08-22T05:34:19.304106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 930.4,
+    "nearest_road_type": "service",
+    "road_access_score": 0.57,
     "sar_change_score": 0.516,
     "sar_mean_abs_change_db": 4.13,
     "confidence_score": 0.503,
@@ -227,11 +245,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "POTENTIAL_VIOLATION"
+    "legality_flag": "POTENTIAL_VIOLATION",
+    "sla_hours": 48,
+    "sla_deadline": "2026-08-29T04:43:08.508947"
   },
   {
     "trigger_id": "MSS-7F6648",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.65524,
     "lon": 81.22982,
     "change_pct": 37.7,
@@ -240,7 +260,9 @@
     "detected_at": "2026-08-22T05:34:19.304106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 570.8,
+    "nearest_road_type": "service",
+    "road_access_score": 0.929,
     "sar_change_score": 0.235,
     "sar_mean_abs_change_db": 1.884,
     "confidence_score": 0.327,
@@ -273,11 +295,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "APPEARS_COMPLIANT"
+    "legality_flag": "APPEARS_COMPLIANT",
+    "sla_hours": 72,
+    "sla_deadline": "2026-08-30T04:43:08.510527"
   },
   {
     "trigger_id": "MSS-D168C3",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.65509,
     "lon": 81.23275,
     "change_pct": 31.9,
@@ -286,7 +310,9 @@
     "detected_at": "2026-08-22T05:34:19.304106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 281.0,
+    "nearest_road_type": "service",
+    "road_access_score": 1.0,
     "sar_change_score": 0.306,
     "sar_mean_abs_change_db": 2.445,
     "confidence_score": 0.314,
@@ -319,11 +345,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "APPEARS_COMPLIANT"
+    "legality_flag": "APPEARS_COMPLIANT",
+    "sla_hours": 72,
+    "sla_deadline": "2026-08-30T04:43:08.513292"
   },
   {
     "trigger_id": "MSS-6E5ACA",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.65407,
     "lon": 81.23258,
     "change_pct": 31.0,
@@ -332,7 +360,9 @@
     "detected_at": "2026-08-22T05:34:19.304106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 247.2,
+    "nearest_road_type": "service",
+    "road_access_score": 1.0,
     "sar_change_score": 0.26,
     "sar_mean_abs_change_db": 2.082,
     "confidence_score": 0.292,
@@ -365,11 +395,13 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "APPEARS_COMPLIANT"
+    "legality_flag": "APPEARS_COMPLIANT",
+    "sla_hours": 72,
+    "sla_deadline": "2026-08-30T04:43:08.515406"
   },
   {
     "trigger_id": "MSS-7E752B",
-    "site_id": "AOI-07-BALAGHAT",
+    "site_id": "AOI-07-BAILADILA",
     "lat": 18.65302,
     "lon": 81.23685,
     "change_pct": 32.4,
@@ -378,7 +410,9 @@
     "detected_at": "2026-08-22T05:34:19.305106+00:00",
     "source": "Sentinel-2 NDVI change detection (synthetic demo data)",
     "status": "PENDING_REVIEW",
-    "road_proximity_score": 0.0,
+    "nearest_road_distance_m": 105.0,
+    "nearest_road_type": "service",
+    "road_access_score": 1.0,
     "sar_change_score": 0.328,
     "sar_mean_abs_change_db": 2.62,
     "confidence_score": 0.325,
@@ -411,6 +445,8 @@
         "data_source": "DERIVED_FROM_IMAGERY"
       }
     },
-    "legality_flag": "APPEARS_COMPLIANT"
+    "legality_flag": "APPEARS_COMPLIANT",
+    "sla_hours": 72,
+    "sla_deadline": "2026-08-30T04:43:08.517004"
   }
 ]

@@ -14,10 +14,48 @@ function filterMssAlerts(features: AlertFeature[]): AlertFeature[] {
   );
 }
 
+const LOCAL_STATUS_KEY = "bhunetra.status_overrides";
+
+export function getLocalStatusOverrides(): Record<number, AlertStatus> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STATUS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setLocalStatusOverride(alertId: number, status: AlertStatus): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = getLocalStatusOverrides();
+    current[alertId] = status;
+    window.localStorage.setItem(LOCAL_STATUS_KEY, JSON.stringify(current));
+  } catch {
+    // ignore
+  }
+}
+
 function buildCleanSites(
   mssAlerts: AlertFeature[],
-  rawSites: Site[]
+  rawSites: Site[],
+  auditLogsList: AuditLogEntry[] = []
 ): { cleanSites: Site[]; normalizedAlerts: AlertFeature[] } {
+  // Collect all alert IDs that were explicitly escalated in audit logs
+  const escalatedAlertIdsInLogs = new Set<number>();
+  for (const log of auditLogsList) {
+    if (
+      log.new_status === "ESCALATED_DGM" ||
+      log.action === "ESCALATED_DGM" ||
+      (log.action === "STATUS_UPDATED" && log.new_status === "ESCALATED_DGM")
+    ) {
+      escalatedAlertIdsInLogs.add(log.alert_id);
+    }
+  }
+
+  const overrides = getLocalStatusOverrides();
+
   // Sort distinct cluster_ids present in the alerts
   const rawClusterIds = Array.from(
     new Set(mssAlerts.map((a) => a.properties.cluster_id).filter((id): id is number => id != null))
@@ -58,10 +96,22 @@ function buildCleanSites(
       .replace(/BALAGHAT/gi, "BAILADILA")
       .replace(/Balaghat/g, "Bailadila");
 
+    // Strict escalation determination
+    let determinedStatus: AlertStatus = a.properties.status;
+    if (overrides[a.properties.id]) {
+      determinedStatus = overrides[a.properties.id];
+    } else if (escalatedAlertIdsInLogs.has(a.properties.id)) {
+      determinedStatus = "ESCALATED_DGM";
+    } else if (a.properties.status === "ESCALATED_DGM" && !escalatedAlertIdsInLogs.has(a.properties.id)) {
+      // Backend auto-escalation without officer action -> keep pending officer
+      determinedStatus = "PENDING_OFFICER";
+    }
+
     return {
       ...a,
       properties: {
         ...a.properties,
+        status: determinedStatus,
         site_id: sanitizedSiteId,
         location_name: sanitizedLocationName,
         cluster_id: newCid,
@@ -69,6 +119,7 @@ function buildCleanSites(
       },
     };
   });
+
 
 
 
@@ -122,7 +173,11 @@ export function useDashboard() {
         api.getAuditLogs(token ?? ""),
       ]);
       const validMssAlerts = filterMssAlerts(alertsRes.features);
-      const { cleanSites, normalizedAlerts } = buildCleanSites(validMssAlerts, sitesRes.sites);
+      const { cleanSites, normalizedAlerts } = buildCleanSites(
+        validMssAlerts,
+        sitesRes.sites,
+        auditRes.audit_logs
+      );
       setAlerts(normalizedAlerts);
       setSites(cleanSites);
       setAuditLogs(auditRes.audit_logs);
@@ -156,7 +211,11 @@ export function useDashboard() {
         ]);
         if (!ignore) {
           const validMssAlerts = filterMssAlerts(alertsRes.features);
-          const { cleanSites, normalizedAlerts } = buildCleanSites(validMssAlerts, sitesRes.sites);
+          const { cleanSites, normalizedAlerts } = buildCleanSites(
+            validMssAlerts,
+            sitesRes.sites,
+            auditRes.audit_logs
+          );
           setAlerts(normalizedAlerts);
           setSites(cleanSites);
           setAuditLogs(auditRes.audit_logs);
@@ -215,15 +274,21 @@ export function useDashboard() {
 
   async function submitAction(alertId: number, newStatus: AlertStatus, notes: string) {
     const alert = alertsById.get(alertId);
-    await api.updateAlertAction(alertId, newStatus, notes, token ?? "", {
-      triggerId: alert?.properties.trigger_id,
-      locationName: alert?.properties.location_name,
-      officerName: session?.name,
-      previousStatus: alert?.properties.status,
-    });
+    setLocalStatusOverride(alertId, newStatus);
     patchAlert(alertId, { status: newStatus });
+    try {
+      await api.updateAlertAction(alertId, newStatus, notes, token ?? "", {
+        triggerId: alert?.properties.trigger_id,
+        locationName: alert?.properties.location_name,
+        officerName: session?.name,
+        previousStatus: alert?.properties.status,
+      });
+    } catch {
+      // local status override already maintained
+    }
     loadAuditLogs();
   }
+
 
   return {
     alerts,

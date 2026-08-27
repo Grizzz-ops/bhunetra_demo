@@ -53,9 +53,9 @@ export function formatDuration(ms: number): string {
 
 export function formatArea(m2: number | null | undefined): string {
   if (m2 == null) return "—";
-  if (m2 >= 10000) return `${(m2 / 10000).toFixed(2)} ha`;
   return `${Math.round(m2).toLocaleString()} m²`;
 }
+
 
 export function formatPercent(v: number | null | undefined, digits = 0): string {
   if (v == null) return "—";

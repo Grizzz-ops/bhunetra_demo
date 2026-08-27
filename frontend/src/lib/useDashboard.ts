@@ -29,18 +29,39 @@ function buildCleanSites(
     idMap.set(rawId, index + 1);
   });
 
-  // Re-map cluster_id on all alerts
+  // Re-map cluster_id and ensure active tiered SLA deadlines on all alerts
+  const nowMs = Date.now();
   const normalizedAlerts = mssAlerts.map((a) => {
     const rawCid = a.properties.cluster_id;
     const newCid = rawCid != null && idMap.has(rawCid) ? idMap.get(rawCid)! : 1;
+
+    let slaHours = 48;
+    if (
+      a.properties.legality_flag === "POTENTIAL_VIOLATION" &&
+      ((a.properties.risk_score || 0) >= 75 || (a.properties.change_pct || 0) >= 50)
+    ) {
+      slaHours = 24;
+    } else if (a.properties.legality_flag === "POTENTIAL_VIOLATION") {
+      slaHours = 48;
+    } else {
+      slaHours = 72;
+    }
+
+    let deadline = a.properties.sla_deadline;
+    if (!deadline || (a.properties.status === "PENDING_OFFICER" && new Date(deadline).getTime() <= nowMs)) {
+      deadline = new Date(nowMs + slaHours * 3600 * 1000).toISOString();
+    }
+
     return {
       ...a,
       properties: {
         ...a.properties,
         cluster_id: newCid,
+        sla_deadline: deadline,
       },
     };
   });
+
 
   const clusters = new Map<number, AlertFeature[]>();
   for (const a of normalizedAlerts) {

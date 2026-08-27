@@ -51,26 +51,12 @@ function buildCleanSites(
       slaHours = 72;
     }
 
-    // Directly respect the database / API status sent by the backend,
-    // BUT detect stale mass-escalations: if status is ESCALATED_DGM and
-    // the SLA deadline is more than 3 days in the past, this was caused by
-    // the old advance-sla endpoint or a stale DB state, not a real officer
-    // escalation. Reset these to PENDING_OFFICER with a fresh countdown.
+    // Directly respect the database / API status sent by the backend
     const rawStatus = a.properties.status;
-    const rawDeadline = a.properties.sla_deadline;
-    const STALE_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
-
-    let determinedStatus: AlertStatus;
-    if (rawStatus === "RESOLVED") {
-      determinedStatus = "RESOLVED";
-    } else if (rawStatus === "ESCALATED_DGM") {
-      // Check if this is a stale mass-escalation
-      const deadlineMs = rawDeadline ? new Date(rawDeadline).getTime() : 0;
-      const isStaleEscalation = deadlineMs > 0 && (nowMs - deadlineMs) > STALE_MS;
-      determinedStatus = isStaleEscalation ? "PENDING_OFFICER" : "ESCALATED_DGM";
-    } else {
-      determinedStatus = "PENDING_OFFICER";
-    }
+    const determinedStatus: AlertStatus =
+      rawStatus === "ESCALATED_DGM" || rawStatus === "RESOLVED"
+        ? rawStatus
+        : "PENDING_OFFICER";
 
     // Active future deadline for countdown
     let deadline = a.properties.sla_deadline;

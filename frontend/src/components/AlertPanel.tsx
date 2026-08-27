@@ -9,9 +9,10 @@ import { BriefSection } from "./BriefSection";
 import { ActionSheet } from "./ActionSheet";
 import { ImageryViewer } from "./ImageryViewer";
 import { AuditTrail } from "./AuditTrail";
-import { formatArea, formatPercent, formatScore } from "@/lib/format";
+import { formatArea, formatPercent, formatScore, formatDeadline } from "@/lib/format";
 import { formatCoordinates, polygonCentroid, copyCoordinatesToClipboard, getGoogleMapsUrl } from "@/lib/geo";
-import { ChevronLeftIcon, CopyIcon, CheckIcon, ExternalLinkIcon, CrosshairIcon, XIcon } from "./icons";
+import { ChevronLeftIcon, CopyIcon, CheckIcon, ExternalLinkIcon, CrosshairIcon, XIcon, ClockIcon } from "./icons";
+
 
 export function AlertPanel({
   alert,
@@ -76,7 +77,32 @@ export function AlertPanel({
           <SlaCountdown deadline={p.sla_deadline} status={p.status} />
         </div>
 
+        {/* Dedicated Enforcement SLA & Time Deadline Banner */}
+        <div className="rounded-xl border border-border bg-surface p-3 flex flex-col gap-2 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-500 shrink-0">
+                <ClockIcon size={16} />
+              </div>
+              <div>
+                <div className="text-[10px] font-display uppercase font-semibold text-text-faint">
+                  Enforcement SLA Time Deadline
+                </div>
+                <div className="font-display font-bold text-xs text-text">
+                  {formatDeadline(p.sla_deadline)}
+                </div>
+              </div>
+            </div>
+            <SlaCountdown deadline={p.sla_deadline} status={p.status} size="sm" />
+          </div>
+          <div className="text-[11px] font-display text-text-muted flex items-center justify-between pt-1 border-t border-border/50">
+            <span>Policy Tier: <strong className="text-text font-semibold">{p.legality_flag === "POTENTIAL_VIOLATION" ? (p.risk_score >= 75 ? "Tier 1 (24h Urgent)" : "Tier 2 (48h Standard)") : "Tier 3 (72h Routine Audit)"}</strong></span>
+            <span>Target: <strong className="text-text font-semibold">IBM / DGM Triage</strong></span>
+          </div>
+        </div>
+
         {/* Prominent Coordinates Bar */}
+
         <div className="rounded-xl border border-border bg-surface p-3 flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2 min-w-0">
             <div className="p-1.5 rounded-md bg-accent/10 text-accent shrink-0">

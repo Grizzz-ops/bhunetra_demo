@@ -81,6 +81,23 @@ export function formatDateTime(iso: string | null | undefined): string {
   }
 }
 
+export function formatDeadline(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("en-IN", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+
 export const LEGALITY_META: Record<
   string,
   { label: string; color: string; bg: string; icon: "alert" | "question" | "check" }

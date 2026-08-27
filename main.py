@@ -473,6 +473,29 @@ def advance_time(db: Session = Depends(get_db)):
     return {"status": "success", "message": "Time-travel activated. SLAs expired and escalated."}
 
 
+@app.post("/api/v1/simulate/reset-sla")
+def reset_sla(db: Session = Depends(get_db)):
+    """Resets all alerts to PENDING_OFFICER with fresh multi-tiered future SLA deadlines (24h/48h/72h)."""
+    now = datetime.utcnow()
+    alerts = db.query(Alert).all()
+    for alert in alerts:
+        alert.status = "PENDING_OFFICER"
+        if alert.legality_flag == "POTENTIAL_VIOLATION" and ((alert.risk_score or 0) >= 75.0 or (alert.change_pct or 0) >= 50.0):
+            hours = 24
+        elif alert.legality_flag == "POTENTIAL_VIOLATION":
+            hours = 48
+        else:
+            hours = 72
+        alert.sla_deadline = now + timedelta(hours=hours)
+
+    db.commit()
+    return {
+        "status": "success",
+        "message": f"Successfully reset {len(alerts)} alerts to PENDING_OFFICER with active tiered SLA countdown deadlines."
+    }
+
+
+
 @app.post("/api/v1/auth/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     officer = db.query(Officer).filter(

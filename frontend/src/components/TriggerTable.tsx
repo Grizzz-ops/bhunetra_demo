@@ -238,8 +238,9 @@ export function TriggerTable({
                 <th className="py-2.5 px-2.5 font-semibold">SAR dB Delta</th>
                 <th className="py-2.5 px-2.5 font-semibold">Disturbance</th>
                 <th className="py-2.5 px-2.5 font-semibold">Legality</th>
-                <th className="py-2.5 px-2.5 font-semibold">SLA / Status</th>
+                <th className="py-2.5 px-2.5 font-semibold">SLA Deadline & Status</th>
                 <th className="py-2.5 px-3 font-semibold text-right">Actions</th>
+
               </tr>
             </thead>
 
@@ -364,8 +365,9 @@ export function TriggerTable({
 
                   {/* SLA / Status */}
                   <td className="py-3 px-3 whitespace-nowrap">
-                    <SlaCountdown deadline={p.sla_deadline} status={p.status} size="sm" />
+                    <SlaCountdown deadline={p.sla_deadline} status={p.status} size="sm" showExactDeadline={true} />
                   </td>
+
 
                   {/* Action Button */}
                   <td className="py-3 px-3.5 whitespace-nowrap text-right">

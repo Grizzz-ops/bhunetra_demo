@@ -52,15 +52,24 @@ function buildCleanSites(
       deadline = new Date(nowMs + slaHours * 3600 * 1000).toISOString();
     }
 
+    const sanitizedSiteId = (a.properties.site_id || "AOI-07-BAILADILA")
+      .replace(/BALAGHAT/gi, "BAILADILA");
+    const sanitizedLocationName = (a.properties.location_name || "")
+      .replace(/BALAGHAT/gi, "BAILADILA")
+      .replace(/Balaghat/g, "Bailadila");
+
     return {
       ...a,
       properties: {
         ...a.properties,
+        site_id: sanitizedSiteId,
+        location_name: sanitizedLocationName,
         cluster_id: newCid,
         sla_deadline: deadline,
       },
     };
   });
+
 
 
   const clusters = new Map<number, AlertFeature[]>();

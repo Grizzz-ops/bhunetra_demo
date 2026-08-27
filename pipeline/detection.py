@@ -39,7 +39,8 @@ LEASE_BOUNDARY_VALID_FOR_SITE = True
 
 NDVI_DROP_THRESHOLD = 0.25   # flag pixels where NDVI fell by more than this
 MIN_BLOB_AREA_PX    = 20     # discard change regions smaller than this (noise)
-SITE_ID             = "AOI-07-BALAGHAT"
+SITE_ID             = "AOI-07-BAILADILA"
+
 
 # ---- helpers ------------------------------------------------------------
 def load_band(path):

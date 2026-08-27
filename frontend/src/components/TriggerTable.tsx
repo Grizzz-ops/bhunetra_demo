@@ -279,8 +279,9 @@ export function TriggerTable({
                           {p.trigger_id ?? `Alert #${p.id}`}
                         </div>
                         <div className="text-[11px] text-text-muted truncate max-w-[140px]">
-                          {p.location_name}
+                          {(p.location_name || "").replace(/BALAGHAT/gi, "BAILADILA").replace(/Balaghat/g, "Bailadila")}
                         </div>
+
                       </div>
                     </div>
                   </td>

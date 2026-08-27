@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "./ThemeToggle";
-import { LogoutIcon, RefreshIcon, ClockIcon, TableIcon, ListIcon } from "./icons";
+import { LogoutIcon, RefreshIcon, ClockIcon, TableIcon, ListIcon, InfoIcon } from "./icons";
+
 
 import type { DashboardViewMode } from "@/lib/types";
 
@@ -94,6 +96,16 @@ export function TopBar({
           </button>
         )}
 
+        {/* About Mission & Docs */}
+        <Link
+          href="/about"
+          className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-border bg-surface text-xs font-display font-semibold text-text hover:border-accent active:scale-95 transition-all"
+          title="About BhuNetra Spaceborne Surveillance Architecture"
+        >
+          <InfoIcon size={15} className="text-accent" />
+          <span className="hidden md:inline">About</span>
+        </Link>
+
         {session && (
           <span className="hidden lg:block text-xs text-text-muted truncate max-w-[130px] font-display">
             {session.name}
@@ -109,6 +121,7 @@ export function TopBar({
         </button>
 
         <ThemeToggle />
+
 
         <button
           onClick={logout}

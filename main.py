@@ -205,6 +205,22 @@ def get_db():
         db.close()
 
 
+@app.get("/")
+def root():
+    """Plain landing response so hitting the bare service URL in a browser
+    shows the API is alive, not FastAPI's default {"detail":"Not Found"}."""
+    return {
+        "service": "BHUNETRA Spatial API",
+        "status": "ok",
+        "docs": "/docs",
+    }
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 JWT_SECRET = os.getenv("JWT_SECRET", "bhunetra_secret_key_2026")
@@ -433,6 +449,37 @@ def get_alerts(db: Session = Depends(get_db)):
         feature_collection["features"].append(feature)
 
     return feature_collection
+
+
+@app.get("/api/v1/audit-logs")
+def get_audit_logs(db: Session = Depends(get_db)):
+    """Pair C (Frontend) history view -- permanent record of every
+    status/SLA change. The frontend falls back to its local log store if
+    this 404s, so returning a real (possibly empty) list keeps the browser
+    console clean."""
+    rows = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).all()
+
+    officer_names = {o.id: o.name for o in db.query(Officer).all()}
+    alerts = {a.id: a for a in db.query(Alert).all()}
+
+    return {
+        "audit_logs": [
+            {
+                "id": r.id,
+                "alert_id": r.alert_id,
+                "trigger_id": alerts[r.alert_id].trigger_id if r.alert_id in alerts else None,
+                "location_name": alerts[r.alert_id].location_name if r.alert_id in alerts else None,
+                "officer_id": r.officer_id,
+                "officer_name": officer_names.get(r.officer_id),
+                "previous_status": r.previous_status,
+                "new_status": r.new_status,
+                "action": r.action,
+                "notes": r.notes,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+            }
+            for r in rows
+        ]
+    }
 
 
 @app.post("/api/v1/simulate/advance-sla")

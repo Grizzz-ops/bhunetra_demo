@@ -1,0 +1,72 @@
+name: Live Sentinel Monitor
+
+# Checks daily for a new, usable Sentinel-2 capture over the Bailadila AOI
+# and runs NDVI+SAR change detection against it. Cheap no-op on most days
+# by design -- Sentinel-2's real revisit is ~5 days at this latitude, and
+# clouds can make even a fresh capture unusable, so "nothing new today" is
+# the expected common outcome, not a failure. See pipeline/live_monitor.py
+# for the full logic and its stated Phase 1 scope.
+#
+# REQUIRES one-time setup before this can run:
+#   1. Sentinel-2/1 access: register a non-interactive OAuth client at
+#      https://shapps.dataspace.copernicus.eu/dashboard (self-service, ~5
+#      min) and add the resulting client_id/client_secret as repo secrets
+#      CDSE_CLIENT_ID / CDSE_CLIENT_SECRET (Settings -> Secrets and
+#      variables -> Actions). Without these, every run fails immediately
+#      with a clear error, not a hang.
+#   2. NTL access (optional -- everything else works without it): add
+#      EARTHDATA_TOKEN as a repo secret too (same token
+#      download_nightlights.py uses, from
+#      https://urs.earthdata.nasa.gov/profile -> Generate Token). If unset,
+#      ntl_delta comes back null with a warning; the rest of the cycle
+#      still runs.
+#
+# real_data_live/state.json (which scene was processed last) must persist
+# across runs -- GitHub Actions checkouts are ephemeral, so this workflow
+# commits that file back to the repo after each run that finds new data.
+# That also means the actual downloaded band files persist and grow the
+# repo over time: measured ~1.1MB per cycle (5 small GeoTIFFs), so at the
+# real ~5-day Sentinel-2 cadence that's roughly ~80MB/year -- fine for a
+# while, but revisit (prune old cycles, or move to Git LFS/external
+# storage) if this becomes a real repo-size problem down the line.
+
+on:
+  schedule:
+    # 04:00 UTC daily (09:30 IST) -- checks daily, only does real work
+    # every ~5 days when a genuinely new usable scene exists.
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to commit real_data_live/state.json back
+
+jobs:
+  live-monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt openeo
+
+      - name: Run live monitor
+        env:
+          CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
+          CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+          EARTHDATA_TOKEN: ${{ secrets.EARTHDATA_TOKEN }}
+        run: python pipeline/live_monitor.py
+
+      - name: Commit updated state + any new triggers/imagery
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add real_data_live/ output/triggers_live.json
+          git diff --staged --quiet && echo "Nothing new to commit" && exit 0
+          git commit -m "Live monitor: new scene processed [skip ci]"
+          git push

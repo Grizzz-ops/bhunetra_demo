@@ -1,0 +1,50 @@
+[
+  {
+    "trigger_id": "MNC-8DB4CF",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66868,
+    "lon": 81.22166,
+    "change_pct": 1.55,
+    "area_px": 899,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-26T23:14:55.531137+00:00",
+    "source": "ericyu/minenetcd-upernet-Swin-Diff-B-Pretrained (experimental -- see module docstring)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MNC-704618",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66667,
+    "lon": 81.22169,
+    "change_pct": 0.07,
+    "area_px": 42,
+    "boundary_status": "boundary_violation",
+    "detected_at": "2026-08-26T23:14:55.532137+00:00",
+    "source": "ericyu/minenetcd-upernet-Swin-Diff-B-Pretrained (experimental -- see module docstring)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MNC-E2CAE2",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.66041,
+    "lon": 81.22836,
+    "change_pct": 9.13,
+    "area_px": 5280,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-26T23:14:55.533137+00:00",
+    "source": "ericyu/minenetcd-upernet-Swin-Diff-B-Pretrained (experimental -- see module docstring)",
+    "status": "PENDING_SCORING"
+  },
+  {
+    "trigger_id": "MNC-BA51DD",
+    "site_id": "AOI-07-BALAGHAT",
+    "lat": 18.65661,
+    "lon": 81.23145,
+    "change_pct": 0.07,
+    "area_px": 40,
+    "boundary_status": "within_lease_expansion",
+    "detected_at": "2026-08-26T23:14:55.533137+00:00",
+    "source": "ericyu/minenetcd-upernet-Swin-Diff-B-Pretrained (experimental -- see module docstring)",
+    "status": "PENDING_SCORING"
+  }
+]

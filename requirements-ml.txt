@@ -1,0 +1,20 @@
+# Optional ML dependencies for pipeline/detection_minenetcd.py and
+# db/generate_briefs.py's underlying model (B3/B4 use the Gemini REST API
+# directly, no local ML deps -- this file is specifically for the
+# MineNetCD change-detection integration).
+#
+# NOT part of requirements.txt on purpose: these pull in torch (500MB-2GB+
+# depending on CPU/CUDA build) which the main FastAPI app and the rest of
+# pipeline/ never need. Install into a separate virtualenv:
+#
+#   python -m venv .venv-minenetcd
+#   .venv-minenetcd/Scripts/pip install -r requirements.txt -r requirements-ml.txt
+#
+# For CPU-only: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# For CUDA (much faster -- ~13min vs ~5-6hrs for the full MineNetCD256
+# benchmark on an RTX 5060): pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+# (pick the cuXXX tag matching your GPU driver's CUDA version)
+transformers
+timm
+datasets
+huggingface_hub

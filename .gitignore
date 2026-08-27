@@ -20,6 +20,15 @@
 # production
 /build
 
+# python virtual envs
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+
+# MineNetCD benchmark validation scratch (cloned repo + cached HF weights/data)
+.venv-minenetcd-repo-src/
+
 # misc
 .DS_Store
 *.pem

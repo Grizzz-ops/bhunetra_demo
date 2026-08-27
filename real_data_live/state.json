@@ -1,0 +1,12 @@
+{
+  "last_scene_date": "2026-06-05",
+  "paths": {
+    "red": "real_data_live\\2026-06-05\\red.tif",
+    "nir": "real_data_live\\2026-06-05\\nir.tif",
+    "blue": "real_data_live\\2026-06-05\\blue.tif",
+    "swir": "real_data_live\\2026-06-05\\swir.tif",
+    "vv": "real_data_live\\2026-06-05\\vv.tif"
+  },
+  "ntl_year_fetched": 2025,
+  "ntl_path": "real_data_live\\ntl\\2025_ntl.tif"
+}

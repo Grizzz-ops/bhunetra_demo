@@ -1,13 +1,22 @@
 """
-BhuNetra — Real Sentinel-2 L2A downloader (Copernicus Data Space Ecosystem)
+BhuNetra — Real Sentinel-2 L2A downloader, 2026 variant (Copernicus Data
+Space Ecosystem).
+
+Same as download_sentinel.py, EXCEPT:
+  - AFTER_DATE_RANGE is 2026-06-01..2026-08-25 (a genuinely new, more
+    recent real scene) instead of the original 2024-01-01..2024-02-28.
+  - Output goes to real_data_2026/, not real_data/ -- this does NOT
+    overwrite the original validated before/after pair (and its 9
+    already-verified NDVI triggers) that detection.py's default config
+    points at.
 
 Downloads Band 4 (Red), Band 8 (NIR), Band 2 (Blue) and Band 11 (SWIR,
 resampled 20m->10m bilinear), cloud-filtered, for a BEFORE and an AFTER
-date range, and saves them as GeoTIFFs under real_data/ using the exact
-filenames detection.py / score_triggers.py expect. Point detection.py's
-BEFORE_RED / BEFORE_NIR / AFTER_RED / AFTER_NIR at these files (see
-README) to run the pipeline on real imagery instead of the synthetic
-demo data. Blue/SWIR feed score_triggers.py's mineral_indicator heuristic.
+date range, and saves them as GeoTIFFs under OUTPUT_DIR using the exact
+filenames detection.py / score_triggers.py expect. Point a script's
+BEFORE_RED / BEFORE_NIR / AFTER_RED / AFTER_NIR at these files to run the
+pipeline against this newer real imagery instead of the original pair.
+Blue/SWIR feed score_triggers.py's mineral_indicator heuristic.
 
 Auth: logs in via openEO's default authenticate_oidc() flow, which on a
 headless/non-browser session falls back to the OIDC device-code grant --
@@ -21,7 +30,6 @@ match sample_data/lease_boundaries.geojson). This script reprojects each
 band to EPSG:4326 on download so the output drops straight into the
 existing pipeline.
 """
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -29,7 +37,6 @@ import openeo
 import rasterio
 import requests
 from dateutil.parser import parse as parse_date
-from dotenv import load_dotenv
 
 # ---- config -------------------------------------------------------------
 BBOX = {"west": 81.22, "south": 18.65, "east": 81.245, "north": 18.67}
@@ -39,13 +46,13 @@ BBOX = {"west": 81.22, "south": 18.65, "east": 81.245, "north": 18.67}
 # reprojection to a geographic CRS doesn't yield exactly-square meter pixels.
 TEN_METER_PIXEL_DEG = 9.311494714577639e-05
 BEFORE_DATE_RANGE = ("2020-01-01", "2020-02-28")
-AFTER_DATE_RANGE  = ("2024-01-01", "2024-02-28")
+AFTER_DATE_RANGE  = ("2026-06-01", "2026-08-25")
 MAX_CLOUD_COVER   = 20   # percent
 
 OPENEO_BACKEND = "https://openeo.dataspace.copernicus.eu"
 COLLECTION     = "SENTINEL2_L2A"
 S1_COLLECTION  = "SENTINEL1_GRD"
-OUTPUT_DIR     = Path("real_data")
+OUTPUT_DIR     = Path("real_data_2026")
 
 # CDSE's public product catalog (OData) -- read-only metadata search, no
 # auth, no pixel data. Used only to discover which sat:orbit_state /
@@ -60,30 +67,6 @@ ORBIT_STATE_CANDIDATES = ("ascending", "descending")
 def connect():
     connection = openeo.connect(OPENEO_BACKEND)
     connection.authenticate_oidc()
-    return connection
-
-
-def connect_service_account():
-    """Non-interactive auth for unattended runs (CI, live_monitor.py) --
-    requires CDSE_CLIENT_ID / CDSE_CLIENT_SECRET env vars. Get these once,
-    yourself, at https://shapps.dataspace.copernicus.eu/dashboard (self-
-    service OAuth client registration, ~5 min, no support ticket needed).
-    This is a documented, real feature (openEO's client-credentials grant),
-    not something invented for this project -- see
-    https://documentation.dataspace.copernicus.eu/APIs/openEO/authentication/client_credentials.html
-    """
-    load_dotenv()
-    client_id = os.environ.get("CDSE_CLIENT_ID")
-    client_secret = os.environ.get("CDSE_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        raise RuntimeError(
-            "CDSE_CLIENT_ID and CDSE_CLIENT_SECRET must be set for non-interactive "
-            "auth. Register a service account at "
-            "https://shapps.dataspace.copernicus.eu/dashboard and set these as "
-            "environment variables (or GitHub Actions secrets)."
-        )
-    connection = openeo.connect(OPENEO_BACKEND)
-    connection.authenticate_oidc_client_credentials(client_id=client_id, client_secret=client_secret)
     return connection
 
 

@@ -21,12 +21,14 @@ unimplemented placeholders; see their docstrings for why.
 import json
 import math
 import os
+from datetime import datetime, timedelta
 
 import geopandas as gpd
 import numpy as np
 import rasterio
 from dateutil.parser import parse as parse_date
 from shapely.geometry import Point
+
 
 TRIGGERS_FILE = "output/triggers.json"
 OUTPUT_FILE   = "output/triggers_scored.json"
@@ -426,7 +428,24 @@ def score_triggers(triggers):
         )
         t["legality_assessment"], t["legality_flag"] = assess_legality(t, leases, mineral_bands)
         t["status"] = "PENDING_REVIEW"
+
+        # Operational SLA Time Deadline based on MMDR enforcement severity:
+        # Tier 1 (Urgent): POTENTIAL_VIOLATION with High Risk / Significant Canopy Drop -> 24 Hours SLA
+        # Tier 2 (Standard): POTENTIAL_VIOLATION -> 48 Hours SLA
+        # Tier 3 (Routine): APPEARS_COMPLIANT -> 72 Hours SLA
+        conf = t.get("confidence_score") or 0
+        chg = t.get("change_pct") or 0
+        if t["legality_flag"] == "POTENTIAL_VIOLATION" and (conf >= 0.75 or chg >= 50.0):
+            sla_h = 24
+        elif t["legality_flag"] == "POTENTIAL_VIOLATION":
+            sla_h = 48
+        else:
+            sla_h = 72
+
+        t["sla_hours"] = sla_h
+        t["sla_deadline"] = (datetime.utcnow() + timedelta(hours=sla_h)).isoformat()
     return triggers
+
 
 
 def main():

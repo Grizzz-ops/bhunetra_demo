@@ -231,3 +231,23 @@ export async function updateAlertAction(
   return res;
 }
 
+export async function updateAlertSla(
+  alertId: number,
+  params: { slaDeadline?: string; extensionHours?: number; reason?: string },
+  token: string
+) {
+  return request<{ status: string; alert_id: number; previous_deadline?: string; new_deadline: string }>(
+    `/api/v1/alerts/${alertId}/sla`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({
+        sla_deadline: params.slaDeadline,
+        extension_hours: params.extensionHours,
+        reason: params.reason ?? "Field officer inspection schedule adjustment",
+      }),
+    }
+  );
+}
+
+

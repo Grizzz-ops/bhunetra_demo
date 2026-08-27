@@ -95,7 +95,10 @@ def build_payload(trigger):
         "ntl_delta": trigger["ntl_delta"],
         "legality_flag": trigger["legality_flag"],
         "legality_assessment": trigger["legality_assessment"],
+        "sla_hours": trigger.get("sla_hours"),
+        "sla_deadline": trigger.get("sla_deadline"),
     }
+
 
 
 def main():

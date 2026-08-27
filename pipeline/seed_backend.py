@@ -46,7 +46,7 @@ import sys
 import requests
 
 TRIGGERS_FILE = "output/triggers_scored.json"
-API_BASE_URL = "https://bhunetrademo-production.up.railway.app"
+API_BASE_URL = "https://bhunetra-demo-rosy.vercel.app"
 TRIGGERS_ENDPOINT = f"{API_BASE_URL}/api/v1/triggers"
 
 SITE_LABEL = "Bailadila AOI-07"

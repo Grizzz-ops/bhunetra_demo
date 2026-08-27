@@ -451,6 +451,157 @@ def get_alerts(db: Session = Depends(get_db)):
     return feature_collection
 
 
+# ==========================================
+# SATELLITE EVIDENCE IMAGERY
+# ==========================================
+# The evidence imagery is produced offline by the detection pipeline
+# (pipeline/*.py write the PNGs into real_data_bailadila/ etc.); a curated
+# set is published as static assets the frontend serves from its own
+# /public/imagery/ folder. This endpoint is the authoritative catalogue of
+# which bands exist for a given alert's AOI and their metadata -- the
+# frontend renders exactly what this returns and shows an empty state when
+# there is nothing on file, instead of carrying its own hardcoded list.
+#
+# Keyed by AOI (Alert.site_id). Today there is a single AOI; add entries
+# here as new AOIs get their own imagery.
+_BAILADILA_BANDS = [
+    {
+        "id": "ndvi",
+        "title": "NDVI Vegetation Loss",
+        "badge": "Optical",
+        "badge_color": "#1f7a4d",
+        "sensor": "Sentinel-2 MSI (Band 4 Red + Band 8 NIR)",
+        "resolution": "10m / px",
+        "description": "Normalized Difference Vegetation Index tracking vegetation canopy loss. Red patches indicate severe surface clearing and excavation.",
+        "before": "/imagery/ndvi_before.png",
+        "after": "/imagery/ndvi_after.png",
+        "diff": "/imagery/ndvi_diff.png",
+        "composite": "/imagery/ndvi_preview.png",
+        "has_comparison": True,
+    },
+    {
+        "id": "ntl",
+        "title": "Nighttime Lights (NTL)",
+        "badge": "Thermal / Radiance",
+        "badge_color": "#b3720c",
+        "sensor": "VIIRS Day/Night Band (Black Marble)",
+        "resolution": "500m / px",
+        "description": "Nighttime radiance emissions indicating night-shift mining activity, generator banks, and heavy mineral transport outside permitted hours.",
+        "before": "/imagery/ntl_before.png",
+        "after": "/imagery/ntl_after.png",
+        "diff": "/imagery/ntl_diff.png",
+        "composite": "/imagery/ntl_diff.png",
+        "has_comparison": True,
+    },
+    {
+        "id": "sar",
+        "title": "SAR Radar (VV Backscatter)",
+        "badge": "Radar (Cloud-Penetrating)",
+        "badge_color": "#2563eb",
+        "sensor": "Sentinel-1 C-Band SAR (Lee-Filtered VV)",
+        "resolution": "10m / px",
+        "description": "Active microwave radar backscatter in dB. Surface roughness and structural pit excavation alters dielectric scattering regardless of clouds.",
+        "before": "/imagery/sar_before.png",
+        "after": "/imagery/sar_after.png",
+        "diff": "/imagery/sar_diff.png",
+        "composite": "/imagery/sar_diff.png",
+        "has_comparison": True,
+    },
+    {
+        "id": "monsoon",
+        "title": "Monsoon Radar vs Optical",
+        "badge": "Cloud Invariance",
+        "badge_color": "#7c3aed",
+        "sensor": "Sentinel-2 (Cloud-Obscured) vs Sentinel-1 SAR",
+        "resolution": "10m / px",
+        "description": "Demonstrating SAR radar's ability to maintain detection capability during heavy monsoon cloud cover when optical satellites are blinded.",
+        "after": "/imagery/monsoon_detection.png",
+        "composite": "/imagery/monsoon_comparison.png",
+        "has_comparison": False,
+    },
+    {
+        "id": "overlay",
+        "title": "Trigger Anomaly Overlay",
+        "badge": "Detections",
+        "badge_color": "#d63a1a",
+        "sensor": "Multi-Sensor Fusion Engine",
+        "resolution": "10m / px",
+        "description": "Automated candidate triggers overlaid with bounding boxes and cluster centroids onto real satellite imagery.",
+        "composite": "/imagery/triggers_overlay.png",
+        "has_comparison": False,
+    },
+    {
+        "id": "full",
+        "title": "Multi-Spectral Overview",
+        "badge": "Full Evidence",
+        "badge_color": "#e8420c",
+        "sensor": "Multi-Satellite Composite",
+        "resolution": "Multi-resolution",
+        "description": "Comprehensive evidence sheet combining NDVI, SAR VV dB, SAR Lee-filtered change, and VIIRS Nighttime Lights radiance.",
+        "composite": "/imagery/full_preview.png",
+        "has_comparison": False,
+    },
+]
+
+IMAGERY_BY_AOI = {
+    "AOI-07-BAILADILA": _BAILADILA_BANDS,
+    "AOI-07-BALAGHAT": _BAILADILA_BANDS,  # legacy site_id, same AOI
+}
+
+
+@app.get("/api/v1/alerts/{alert_id}/imagery")
+def get_alert_imagery(alert_id: int, db: Session = Depends(get_db)):
+    """Evidence-imagery catalogue for one alert, keyed by its AOI. Returns
+    an empty band list (not a 404) when the AOI has no imagery on file so
+    the frontend can render a clean empty state."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    return {
+        "alert_id": alert.id,
+        "aoi": alert.site_id,
+        "bands": IMAGERY_BY_AOI.get(alert.site_id or "", []),
+    }
+
+
+@app.post("/api/v1/admin/cleanup-data")
+def admin_cleanup_data(
+    db: Session = Depends(get_db),
+    officer=Depends(get_current_officer),
+):
+    """One-shot production data cleanup, mirrors db/cleanup_data.py. Removes
+    orphan alerts (trigger_id IS NULL) + their audit rows and fixes the
+    AOI-07-BALAGHAT -> AOI-07-BAILADILA site_id typo. Idempotent. Requires a
+    valid session token. TODO: remove once run."""
+    orphan_ids = [r[0] for r in db.execute(
+        text("SELECT id FROM alerts WHERE trigger_id IS NULL")
+    )]
+    deleted_audit = 0
+    deleted_alerts = 0
+    if orphan_ids:
+        deleted_audit = db.execute(
+            text("DELETE FROM audit_logs WHERE alert_id = ANY(:ids)"),
+            {"ids": orphan_ids},
+        ).rowcount
+        deleted_alerts = db.execute(
+            text("DELETE FROM alerts WHERE id = ANY(:ids)"),
+            {"ids": orphan_ids},
+        ).rowcount
+    fixed_site_id = db.execute(text(
+        "UPDATE alerts SET site_id = 'AOI-07-BAILADILA' "
+        "WHERE site_id = 'AOI-07-BALAGHAT'"
+    )).rowcount
+    db.commit()
+    return {
+        "status": "success",
+        "orphan_alert_ids": orphan_ids,
+        "deleted_audit_logs": deleted_audit,
+        "deleted_alerts": deleted_alerts,
+        "site_id_fixed": fixed_site_id,
+    }
+
+
 @app.get("/api/v1/audit-logs")
 def get_audit_logs(db: Session = Depends(get_db)):
     """Pair C (Frontend) history view -- permanent record of every

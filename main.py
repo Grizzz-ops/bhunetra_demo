@@ -496,33 +496,80 @@ def reset_sla(db: Session = Depends(get_db)):
 
 
 
+DEMO_OFFICERS = {
+    "dgm@bhunetra.gov.in": {"name": "Priya Sharma (DGM Director)", "pass": "dgm123", "role": "DGM_ADMIN", "state": "Chhattisgarh"},
+    "dgm.admin@bhunetra.gov.in": {"name": "Priya Sharma (DGM Director)", "pass": "dgm@123", "role": "DGM_ADMIN", "state": "Chhattisgarh"},
+    "dgm@bhunetra.demo": {"name": "Priya Sharma (DGM Director)", "pass": "dgm123", "role": "DGM_ADMIN", "state": "Chhattisgarh"},
+    "officer@bhunetra.gov.in": {"name": "Field Inspector R. Verma", "pass": "officer123", "role": "FIELD_OFFICER", "state": "Chhattisgarh"},
+    "field@bhunetra.demo": {"name": "Rajesh Kumar (Field Officer)", "pass": "field123", "role": "FIELD_OFFICER", "state": "Chhattisgarh"},
+    "ibm@bhunetra.demo": {"name": "Anil Mishra (IBM Director)", "pass": "ibm123", "role": "DGM_ADMIN", "state": "Central"},
+}
+
+
 @app.post("/api/v1/auth/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
+    # 1. Check in database first
     officer = db.query(Officer).filter(
         Officer.email == request.email,
         Officer.is_active == 1
     ).first()
 
-    if not officer or not pwd_context.verify(
-        request.password, officer.password_hash
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect email or password"
+    if officer and pwd_context.verify(request.password, officer.password_hash):
+        token = create_token(
+            officer_id=officer.id,
+            role=officer.role,
+            state=officer.state
         )
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "role": officer.role,
+            "name": officer.name
+        }
 
-    token = create_token(
-        officer_id=officer.id,
-        role=officer.role,
-        state=officer.state
+    # 2. Check demo accounts and seed into DB on demand
+    req_email = request.email.strip().lower()
+    if req_email in DEMO_OFFICERS:
+        demo = DEMO_OFFICERS[req_email]
+        if request.password == demo["pass"]:
+            if not officer:
+                new_officer = Officer(
+                    name=demo["name"],
+                    email=req_email,
+                    password_hash=pwd_context.hash(demo["pass"]),
+                    role=demo["role"],
+                    district="Dantewada / Bastar",
+                    state=demo["state"],
+                    is_active=1
+                )
+                db.add(new_officer)
+                try:
+                    db.commit()
+                    db.refresh(new_officer)
+                    officer_id = new_officer.id
+                except Exception:
+                    db.rollback()
+                    officer_id = 99
+            else:
+                officer_id = officer.id
+
+            token = create_token(
+                officer_id=officer_id,
+                role=demo["role"],
+                state=demo["state"]
+            )
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "role": demo["role"],
+                "name": demo["name"]
+            }
+
+    raise HTTPException(
+        status_code=401,
+        detail="Incorrect email or password"
     )
 
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "role": officer.role,
-        "name": officer.name
-    }
 
 
 @app.patch("/api/v1/alerts/{alert_id}/action")

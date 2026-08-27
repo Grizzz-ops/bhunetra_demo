@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "./ThemeToggle";
-import { LogoutIcon, RefreshIcon, ClockIcon, TableIcon, ListIcon, InfoIcon } from "./icons";
+import { LogoutIcon, RefreshIcon, ClockIcon, TableIcon, ListIcon, InfoIcon, BuildingIcon } from "./icons";
+
 
 
 import type { DashboardViewMode } from "@/lib/types";
@@ -96,6 +97,16 @@ export function TopBar({
           </button>
         )}
 
+        {/* DGM Portal Link */}
+        <Link
+          href="/dgm"
+          className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-display font-semibold text-amber-500 active:scale-95 transition-all"
+          title="Directorate of Geology & Mining Escalation & Legal Action Portal"
+        >
+          <BuildingIcon size={14} />
+          <span className="hidden md:inline">DGM Portal</span>
+        </Link>
+
         {/* About Mission & Docs */}
         <Link
           href="/about"
@@ -105,6 +116,7 @@ export function TopBar({
           <InfoIcon size={15} className="text-accent" />
           <span className="hidden md:inline">About</span>
         </Link>
+
 
         {session && (
           <span className="hidden lg:block text-xs text-text-muted truncate max-w-[130px] font-display">

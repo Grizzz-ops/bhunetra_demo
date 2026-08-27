@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import * as api from "./api";
+import type { LoginResponse } from "./types";
 
 export type Role = "FIELD_OFFICER" | "DGM_ADMIN" | string;
 
@@ -22,9 +23,10 @@ interface Session {
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResponse>;
   logout: () => void;
 }
+
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const STORAGE_KEY = "bhunetra.session";
@@ -87,7 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     emitChange();
+    return res;
   }, []);
+
 
   const logout = useCallback(() => {
     memorySession = null;

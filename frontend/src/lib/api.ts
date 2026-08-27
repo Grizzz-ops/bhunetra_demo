@@ -15,7 +15,7 @@ import type {
 // backend dev.
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "https://bhunetrademo-production.up.railway.app";
+  "https://bhunetra-demo-rosy.vercel.app";
 
 const LOCAL_AUDIT_KEY = "bhunetra.audit_logs";
 

@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import mapping, shape
-from apscheduler.schedulers.background import BackgroundScheduler
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -174,12 +173,8 @@ def check_and_escalate_slas():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start the background worker on server boot
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(check_and_escalate_slas, 'interval', seconds=60)
-    scheduler.start()
+    # No background workers — all escalation is manual via officer UI
     yield
-    scheduler.shutdown()
 
 # ==========================================
 # 5. FASTAPI APPLICATION SETUP
@@ -441,22 +436,9 @@ def get_alerts(db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/simulate/advance-sla")
-def advance_time(db: Session = Depends(get_db)):
-    """The Demo "Time-Travel" Hack: Forces all pending SLAs to expire immediately."""
-    # Intentionally unauthenticated: demo-only control to skip the 48h SLA
-    # wait during the hackathon walkthrough. Do not carry this endpoint
-    # (or its lack of auth) into any non-demo deployment.
-
-    past_time = datetime.utcnow() - timedelta(hours=49)
-
-    db.query(Alert).filter(Alert.status == "PENDING_OFFICER").update(
-        {"sla_deadline": past_time}
-    )
-    db.commit()
-
-    check_and_escalate_slas()
-
-    return {"status": "success", "message": "Time-travel activated. SLAs expired and escalated."}
+def advance_time():
+    """DISABLED — this endpoint previously caused mass auto-escalation."""
+    return {"status": "disabled", "message": "advance-sla is disabled. Use reset-sla to reset all alerts."}
 
 
 @app.post("/api/v1/simulate/reset-sla")

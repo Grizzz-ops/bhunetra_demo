@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -15,7 +16,8 @@ import { AuditLogModal } from "@/components/AuditLogModal";
 import { SiteListSkeleton } from "@/components/Skeletons";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import MapView from "@/components/MapViewLoader";
-import { ListIcon, MapIcon, TableIcon, ClockIcon } from "@/components/icons";
+import { ListIcon, MapIcon, TableIcon, ClockIcon, InfoIcon } from "@/components/icons";
+
 
 export default function DashboardPage() {
   const { session, loading: authLoading } = useAuth();
@@ -291,7 +293,15 @@ export default function DashboardPage() {
             <ClockIcon size={18} />
             <span className="text-[10px] font-display uppercase tracking-wide">Audit</span>
           </button>
+          <Link
+            href="/about"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 text-text-muted hover:text-accent transition-colors"
+          >
+            <InfoIcon size={18} />
+            <span className="text-[10px] font-display uppercase tracking-wide">About</span>
+          </Link>
         </div>
+
       </div>
 
       {/* Global Audit Log Modal */}

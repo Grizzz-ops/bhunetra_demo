@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   MapContainer,
@@ -15,7 +16,8 @@ import type { LatLngBoundsExpression, LatLngTuple } from "leaflet";
 import type { AlertFeature, LeaseFeature, Site } from "@/lib/types";
 import { polygonToLatLngs, polygonCentroid, formatCoordinates, copyCoordinatesToClipboard } from "@/lib/geo";
 import { formatArea, formatPercent, formatScore, legalityMeta } from "@/lib/format";
-import { LayersIcon, CopyIcon, CheckIcon, CrosshairIcon } from "./icons";
+import { LayersIcon, CopyIcon, CheckIcon, CrosshairIcon, InfoIcon } from "./icons";
+
 
 
 const DEFAULT_CENTER: LatLngTuple = [18.66, 81.23]; // Bailadila AOI fallback
@@ -382,13 +384,26 @@ export default function MapView({
 
       {/* Floating Layer & Basemap Switcher Control */}
       <div className="absolute top-3.5 right-3.5 z-[1000] flex flex-col items-end gap-2">
-        <button
-          onClick={() => setShowLayersMenu((v) => !v)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface/90 hover:bg-surface backdrop-blur-md border border-border text-text shadow-lg transition-transform active:scale-95 font-display text-xs font-semibold"
-        >
-          <LayersIcon size={16} className="text-accent" />
-          <span>Map Controls</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* About BhuNetra Button on Map Side */}
+          <Link
+            href="/about"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface/90 hover:bg-surface backdrop-blur-md border border-border text-text shadow-lg transition-all active:scale-95 font-display text-xs font-semibold hover:border-accent hover:text-accent"
+            title="About BhuNetra Spaceborne Architecture & Docs"
+          >
+            <InfoIcon size={15} className="text-accent" />
+            <span className="hidden sm:inline">About</span>
+          </Link>
+
+          <button
+            onClick={() => setShowLayersMenu((v) => !v)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface/90 hover:bg-surface backdrop-blur-md border border-border text-text shadow-lg transition-transform active:scale-95 font-display text-xs font-semibold"
+          >
+            <LayersIcon size={16} className="text-accent" />
+            <span>Map Controls</span>
+          </button>
+        </div>
+
 
         {showLayersMenu && (
           <div className="w-56 p-3 rounded-2xl bg-surface/95 backdrop-blur-md border border-border shadow-2xl text-xs font-display space-y-3 animate-fadeIn">

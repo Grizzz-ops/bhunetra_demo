@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { AlertFeature } from "@/lib/types";
 import { formatArea, formatPercent, formatScore, legalityMeta } from "@/lib/format";
@@ -12,7 +13,9 @@ import {
   CheckIcon,
   ExternalLinkIcon,
   ChevronRightIcon,
+  InfoIcon,
 } from "./icons";
+
 
 type SortField = "risk" | "area" | "change" | "id";
 
@@ -205,9 +208,19 @@ export function TriggerTable({
             >
               {sortOrder === "desc" ? "↓ Desc" : "↑ Asc"}
             </button>
+
+            <Link
+              href="/about"
+              className="px-2.5 py-1 rounded border border-border bg-surface text-[11px] font-display font-semibold text-text hover:border-accent hover:text-accent flex items-center gap-1 transition-colors ml-1"
+              title="About BhuNetra Spaceborne Surveillance Architecture & Docs"
+            >
+              <InfoIcon size={13} className="text-accent" />
+              <span>About Docs</span>
+            </Link>
           </div>
         </div>
       </div>
+
 
 
       {/* Table Container */}

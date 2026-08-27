@@ -57,8 +57,9 @@ export default function AboutPage() {
           </h1>
 
           <p className="text-base sm:text-lg text-text-muted leading-relaxed">
-            <strong className="text-text font-semibold">BhuNetra (भू-नेत्र)</strong> fuses ESA Sentinel-2 multi-spectral optical imagery, Sentinel-1 all-weather SAR radar, and NASA/NOAA VIIRS nighttime radiance to autonomously detect illegal mining, forest encroachments, and nocturnal extraction across India.
+            <strong className="text-text font-semibold">BhuNetra (भू-नेत्र)</strong> fuses ESA Sentinel-2 multi-spectral optical imagery, Sentinel-1 all-weather SAR radar, and NASA/NOAA VIIRS nighttime radiance to autonomously detect illegal mining.
           </p>
+
 
           {/* Quick Metrics Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 text-left">

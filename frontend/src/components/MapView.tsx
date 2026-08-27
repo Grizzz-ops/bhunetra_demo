@@ -22,27 +22,34 @@ const DEFAULT_CENTER: LatLngTuple = [18.66, 81.23]; // Bailadila AOI fallback
 
 type BaseMapType = "satellite" | "osm" | "dark";
 
-const BASEMAPS: Record<BaseMapType, { name: string; url: string; attribution: string; maxZoom: number }> = {
+const BASEMAPS: Record<
+  BaseMapType,
+  { name: string; url: string; attribution: string; maxZoom: number; maxNativeZoom: number }
+> = {
   satellite: {
     name: "Satellite",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-    maxZoom: 19,
+    attribution:
+      "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+    maxZoom: 20,
+    maxNativeZoom: 17,
   },
   osm: {
     name: "Street Map",
     url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution: "&copy; OpenStreetMap contributors",
-    maxZoom: 19,
+    maxZoom: 20,
+    maxNativeZoom: 19,
   },
   dark: {
     name: "Dark Canvas",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
-    maxZoom: 16,
+    maxZoom: 20,
+    maxNativeZoom: 16,
   },
-
 };
+
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression | null }) {
   const map = useMap();
@@ -149,6 +156,8 @@ export default function MapView({
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={13}
+        maxZoom={19}
+        minZoom={4}
         className="h-full w-full z-0"
         zoomControl={true}
         attributionControl={true}
@@ -157,6 +166,7 @@ export default function MapView({
           key={basemap}
           url={currentBasemap.url}
           maxZoom={currentBasemap.maxZoom}
+          maxNativeZoom={currentBasemap.maxNativeZoom}
           attribution={currentBasemap.attribution}
         />
 
@@ -166,14 +176,16 @@ export default function MapView({
             <TileLayer
               key="satellite-boundaries-places"
               url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-              maxZoom={19}
+              maxZoom={20}
+              maxNativeZoom={17}
               opacity={0.95}
               zIndex={10}
             />
             <TileLayer
               key="satellite-roads"
               url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
-              maxZoom={19}
+              maxZoom={20}
+              maxNativeZoom={17}
               opacity={0.85}
               zIndex={9}
             />
@@ -184,11 +196,13 @@ export default function MapView({
           <TileLayer
             key="dark-labels"
             url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-            maxZoom={16}
+            maxZoom={20}
+            maxNativeZoom={16}
             opacity={0.95}
             zIndex={10}
           />
         )}
+
 
         <LiveCoordinateTracker
           onCoordChange={(lat, lon, zoom) => setCursorCoords({ lat, lon, zoom })}

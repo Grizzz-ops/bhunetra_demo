@@ -83,9 +83,14 @@ export default function DgmDashboardPage() {
 
   const allAlerts = useMemo(() => alerts ?? [], [alerts]);
 
-  // Find latest escalation note from audit log for each alert
+  // Latest real escalation record from the audit log, per alert. No entry
+  // means no field-officer dispatch note is on record -- callers handle
+  // that rather than showing invented text.
   const escalationNotesMap = useMemo(() => {
-    const map = new Map<number, { notes: string; officer: string; timestamp: string; reason: string }>();
+    const map = new Map<
+      number,
+      { notes: string | null; officer: string | null; timestamp: string; reason: string | null }
+    >();
     if (!auditLogs) return map;
 
     const sorted = [...auditLogs].sort(
@@ -95,10 +100,10 @@ export default function DgmDashboardPage() {
     for (const log of sorted) {
       if (log.new_status === "ESCALATED_DGM" || log.action === "ESCALATED_DGM") {
         map.set(log.alert_id, {
-          notes: log.notes || "Dispatched by field officer for urgent DGM statutory review.",
-          officer: log.officer_name || `Officer #${log.officer_id}`,
+          notes: log.notes ?? null,
+          officer: log.officer_name ?? null,
           timestamp: log.timestamp,
-          reason: log.notes ? log.notes.split("—")[0].trim() : "Needs DGM Review",
+          reason: log.notes ? log.notes.split("—")[0].trim() : null,
         });
       }
     }
@@ -140,14 +145,7 @@ export default function DgmDashboardPage() {
 
   const selectedEscalationInfo = useMemo(() => {
     if (!selectedAlert || selectedAlert.properties.status !== "ESCALATED_DGM") return null;
-    return (
-      escalationNotesMap.get(selectedAlert.properties.id) ?? {
-        notes: "Suspected boundary violation and unlicensed excavation outside sanctioned lease perimeter. Dispatched for immediate DGM show-cause proceedings under Section 21 of the MMDR Act 1957.",
-        officer: "Field Officer",
-        timestamp: selectedAlert.properties.sla_deadline || new Date().toISOString(),
-        reason: "Suspected Large-Scale Violation",
-      }
-    );
+    return escalationNotesMap.get(selectedAlert.properties.id) ?? null;
   }, [selectedAlert, escalationNotesMap]);
 
 
@@ -457,7 +455,7 @@ export default function DgmDashboardPage() {
                           {p.trigger_id ?? `Alert #${p.id}`}
                         </span>
                         <span className="text-[10px] font-mono text-text-muted">
-                          &middot; {p.site_id ?? "AOI-07-BAILADILA"}
+                          &middot; {p.site_id ?? "—"}
                         </span>
                       </div>
 
@@ -480,21 +478,22 @@ export default function DgmDashboardPage() {
 
                     {/* Location & Disturbance */}
                     <div className="text-xs text-text-muted mb-2 truncate">
-                      {(p.location_name || "Bailadila AOI-07").replace(/BALAGHAT/gi, "BAILADILA")} &middot;{" "}
+                      {p.location_name || "—"} &middot;{" "}
                       <strong className="text-text">{formatArea(p.disturbance_area_m2)}</strong>
                     </div>
 
                     {/* Officer Escalation Message Box */}
-                    {isEscalated && (
+                    {isEscalated && escInfo && (escInfo.officer || escInfo.notes) && (
                       <div className="p-2.5 rounded-lg bg-bg border border-amber-500/30 text-xs space-y-1 mb-2">
                         <div className="flex items-center justify-between text-[10px] text-amber-500 font-semibold uppercase tracking-wide">
-                          <span>👤 {escInfo?.officer || "Field Officer"}</span>
-                          <span>{escInfo?.timestamp ? formatDateTime(escInfo.timestamp) : "Recent"}</span>
+                          <span>👤 {escInfo.officer ?? "Officer"}</span>
+                          <span>{escInfo.timestamp ? formatDateTime(escInfo.timestamp) : ""}</span>
                         </div>
-                        <div className="text-[11px] text-text font-medium leading-relaxed italic">
-                          &ldquo;{escInfo?.notes || "Dispatched for urgent DGM statutory review."}&rdquo;
-                        </div>
-
+                        {escInfo.notes && (
+                          <div className="text-[11px] text-text font-medium leading-relaxed italic">
+                            &ldquo;{escInfo.notes}&rdquo;
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -541,10 +540,10 @@ export default function DgmDashboardPage() {
                     </span>
                   </div>
                   <h1 className="font-display font-extrabold text-xl lg:text-2xl text-text">
-                    {(selectedAlert.properties.location_name || "Bailadila AOI-07").replace(/BALAGHAT/gi, "BAILADILA")}
+                    {selectedAlert.properties.location_name || "—"}
                   </h1>
                   <p className="text-xs text-text-muted mt-0.5">
-                    Spatial AOI: {selectedAlert.properties.site_id ?? "AOI-07-BAILADILA"} &middot; Dantewada District, Chhattisgarh
+                    Spatial AOI: {selectedAlert.properties.site_id ?? "—"} &middot; Dantewada District, Chhattisgarh
                   </p>
                 </div>
 
@@ -566,19 +565,33 @@ export default function DgmDashboardPage() {
                       <AlertTriangleIcon size={15} />
                       <span>Field Officer Escalation Dispatch Message</span>
                     </div>
-                    <span className="text-[11px] font-mono text-text-muted">
-                      {selectedEscalationInfo?.timestamp && formatDateTime(selectedEscalationInfo.timestamp)}
-                    </span>
+                    {selectedEscalationInfo?.timestamp && (
+                      <span className="text-[11px] font-mono text-text-muted">
+                        {formatDateTime(selectedEscalationInfo.timestamp)}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm font-medium text-text leading-relaxed">
-                    &ldquo;{selectedEscalationInfo?.notes || "Dispatched by field officer for urgent DGM statutory review."}&rdquo;
-                  </p>
+                  {selectedEscalationInfo?.notes ? (
+                    <p className="text-sm font-medium text-text leading-relaxed">
+                      &ldquo;{selectedEscalationInfo.notes}&rdquo;
+                    </p>
+                  ) : (
+                    <p className="text-sm text-text-muted leading-relaxed">
+                      No field-officer dispatch note is recorded for this escalation.
+                    </p>
+                  )}
 
-                  <div className="text-[11px] text-text-muted flex items-center gap-2 pt-1 border-t border-amber-500/20">
-                    <span>Submitting Officer: <strong>{selectedEscalationInfo?.officer || "Field Officer"}</strong></span>
-                    <span>&middot;</span>
-                    <span>Primary Reason: <strong>{selectedEscalationInfo?.reason || "Needs DGM Review"}</strong></span>
-                  </div>
+                  {(selectedEscalationInfo?.officer || selectedEscalationInfo?.reason) && (
+                    <div className="text-[11px] text-text-muted flex items-center gap-2 pt-1 border-t border-amber-500/20">
+                      {selectedEscalationInfo?.officer && (
+                        <span>Submitting Officer: <strong>{selectedEscalationInfo.officer}</strong></span>
+                      )}
+                      {selectedEscalationInfo?.officer && selectedEscalationInfo?.reason && <span>&middot;</span>}
+                      {selectedEscalationInfo?.reason && (
+                        <span>Primary Reason: <strong>{selectedEscalationInfo.reason}</strong></span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -648,12 +661,7 @@ export default function DgmDashboardPage() {
                   Optical (Sentinel-2) + Radar (Sentinel-1 SAR) + VIIRS Nightlights
                 </span>
               </div>
-              <ImageryViewer
-                triggerId={selectedAlert.properties.trigger_id}
-                changePct={selectedAlert.properties.change_pct}
-                ntlDelta={selectedAlert.properties.ntl_delta}
-                sarScore={selectedAlert.properties.sar_change_score}
-              />
+              <ImageryViewer alertId={selectedAlert.properties.id} />
             </div>
 
 
@@ -779,7 +787,7 @@ export default function DgmDashboardPage() {
                   Mining Enforcement Cell &middot; Bastar / Dantewada Division
                 </div>
                 <div className="text-[10px] font-mono text-text-faint pt-1">
-                  Ref No: DGM/ENF/2026/SEC21-{(noticeModalAlert.properties.trigger_id || "TR-001").replace(/-/g, "")} &middot; Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                  Ref No: DGM/ENF/2026/SEC21-{(noticeModalAlert.properties.trigger_id ?? String(noticeModalAlert.properties.id)).replace(/-/g, "")} &middot; Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
                 </div>
               </div>
 
@@ -806,9 +814,10 @@ export default function DgmDashboardPage() {
                   </div>
                   <div>&bull; Disturbed Excavation Footprint: <strong>{formatArea(noticeModalAlert.properties.disturbance_area_m2)}</strong></div>
                   <div>&bull; Optical Surface Vegetation Drop: <strong>{formatPercent(noticeModalAlert.properties.change_pct)}</strong></div>
-                  <div>&bull; Legality Status: <strong>{noticeModalAlert.properties.legality_flag}</strong></div>
-                  <div>&bull; Field Officer Dispatch: <strong>&ldquo;{selectedEscalationInfo?.notes}&rdquo;</strong></div>
-
+                  <div>&bull; Legality Status: <strong>{noticeModalAlert.properties.legality_flag ?? "—"}</strong></div>
+                  {selectedEscalationInfo?.notes && (
+                    <div>&bull; Field Officer Dispatch: <strong>&ldquo;{selectedEscalationInfo.notes}&rdquo;</strong></div>
+                  )}
                 </div>
 
                 <p>
@@ -816,7 +825,9 @@ export default function DgmDashboardPage() {
                 </p>
 
                 <p>
-                  YOU ARE HEREBY DIRECTED TO CEASE AND DESIST all extraction operations forthwith and show cause within <strong>15 (fifteen) days</strong> of receipt of this notice as to why penal proceedings under Section 21 of the MMDR Act, 1957 and environmental damages of <strong>₹{((noticeModalAlert.properties.disturbance_area_m2 || 500) * 1200 + 500000).toLocaleString("en-IN")}</strong> should not be recovered.
+                  YOU ARE HEREBY DIRECTED TO CEASE AND DESIST all extraction operations forthwith and show cause within <strong>15 (fifteen) days</strong> of receipt of this notice as to why penal proceedings under Section 21 of the MMDR Act, 1957{noticeModalAlert.properties.disturbance_area_m2 != null && (
+                    <> and environmental damages of <strong>₹{(noticeModalAlert.properties.disturbance_area_m2 * 1200 + 500000).toLocaleString("en-IN")}</strong></>
+                  )} should not be recovered.
                 </p>
               </div>
 
@@ -825,8 +836,10 @@ export default function DgmDashboardPage() {
                   BhuNetra Automated Enforcement Dispatch &middot; Digital SHA-256 Verified
                 </div>
                 <div className="text-right">
-                  <div className="font-display font-bold text-text">Priya Sharma, IAS</div>
-                  <div className="text-[11px] text-text-muted">Director, Geology & Mining (DGM)</div>
+                  <div className="font-display font-bold text-text">{session?.name ?? "—"}</div>
+                  <div className="text-[11px] text-text-muted">
+                    {session?.role === "DGM_ADMIN" ? "Director, Geology & Mining (DGM)" : "Authorised Officer"}
+                  </div>
                   <div className="text-[10px] text-text-faint">Government of Chhattisgarh</div>
                 </div>
               </div>

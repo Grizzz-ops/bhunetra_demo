@@ -53,10 +53,10 @@ export function AlertPanel({
         </button>
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-display uppercase tracking-wide text-text-faint truncate">
-            {p.trigger_id ?? `Alert #${p.id}`} &middot; {(p.site_id ?? "AOI-07-BAILADILA").replace(/BALAGHAT/gi, "BAILADILA")}
+            {p.trigger_id ?? `Alert #${p.id}`} &middot; {p.site_id ?? "—"}
           </div>
           <div className="font-display font-bold text-base text-text truncate">
-            {(p.location_name || "").replace(/BALAGHAT/gi, "BAILADILA").replace(/Balaghat/g, "Bailadila")}
+            {p.location_name || "—"}
           </div>
 
         </div>
@@ -161,12 +161,7 @@ export function AlertPanel({
 
         {/* Multi-Spectral Satellite Imagery Viewer */}
         <section>
-          <ImageryViewer
-            triggerId={p.trigger_id}
-            changePct={p.change_pct}
-            ntlDelta={p.ntl_delta}
-            sarScore={p.sar_change_score}
-          />
+          <ImageryViewer alertId={p.id} />
         </section>
 
         {/* Legality Checklist */}

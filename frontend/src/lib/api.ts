@@ -3,6 +3,7 @@ import type {
   BriefResponse,
   ActionResponse,
   AuditLogsResponse,
+  ImageryManifest,
   LeasesResponse,
   LoginResponse,
   SitesResponse,
@@ -116,6 +117,10 @@ export function generateBrief(alertId: number, token: string) {
 
 export function getAuditLogs(token: string): Promise<AuditLogsResponse> {
   return request<AuditLogsResponse>("/api/v1/audit-logs", { token });
+}
+
+export function getAlertImagery(alertId: number, token: string) {
+  return request<ImageryManifest>(`/api/v1/alerts/${alertId}/imagery`, { token });
 }
 
 export function updateAlertAction(

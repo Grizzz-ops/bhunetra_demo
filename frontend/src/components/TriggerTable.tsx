@@ -279,7 +279,7 @@ export function TriggerTable({
                           {p.trigger_id ?? `Alert #${p.id}`}
                         </div>
                         <div className="text-[11px] text-text-muted truncate max-w-[140px]">
-                          {(p.location_name || "").replace(/BALAGHAT/gi, "BAILADILA").replace(/Balaghat/g, "Bailadila")}
+                          {p.location_name || "—"}
                         </div>
 
                       </div>
@@ -321,7 +321,7 @@ export function TriggerTable({
                       {formatScore(p.risk_score, 1)}
                     </div>
                     <div className="text-[10px] font-display uppercase tracking-wide text-text-faint">
-                      {p.confidence_tier ?? "Watchlist"}
+                      {p.confidence_tier ?? "—"}
                     </div>
                   </td>
 

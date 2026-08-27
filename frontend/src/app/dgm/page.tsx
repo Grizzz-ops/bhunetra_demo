@@ -138,17 +138,17 @@ export default function DgmDashboardPage() {
 
 
   const selectedEscalationInfo = useMemo(() => {
-    if (!selectedAlert) return null;
+    if (!selectedAlert || selectedAlert.properties.status !== "ESCALATED_DGM") return null;
     return (
       escalationNotesMap.get(selectedAlert.properties.id) ?? {
         notes: "Suspected boundary violation and unlicensed excavation outside sanctioned lease perimeter. Dispatched for immediate DGM show-cause proceedings under Section 21 of the MMDR Act 1957.",
-        officer: "Field Officer Rajesh Kumar",
+        officer: "Field Officer",
         timestamp: selectedAlert.properties.sla_deadline || new Date().toISOString(),
         reason: "Suspected Large-Scale Violation",
       }
     );
-
   }, [selectedAlert, escalationNotesMap]);
+
 
   // Executive KPI summary calculations
   const stats = useMemo(() => {
@@ -555,26 +555,29 @@ export default function DgmDashboardPage() {
               </div>
 
               {/* Officer Escalation Banner */}
-              <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-display font-bold text-xs uppercase tracking-wide text-amber-500">
-                    <AlertTriangleIcon size={15} />
-                    <span>Field Officer Escalation Dispatch Message</span>
+              {selectedAlert.properties.status === "ESCALATED_DGM" && (
+                <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-display font-bold text-xs uppercase tracking-wide text-amber-500">
+                      <AlertTriangleIcon size={15} />
+                      <span>Field Officer Escalation Dispatch Message</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-text-muted">
+                      {selectedEscalationInfo?.timestamp && formatDateTime(selectedEscalationInfo.timestamp)}
+                    </span>
                   </div>
-                  <span className="text-[11px] font-mono text-text-muted">
-                    {selectedEscalationInfo?.timestamp && formatDateTime(selectedEscalationInfo.timestamp)}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-text leading-relaxed">
-                  &ldquo;{selectedEscalationInfo?.notes}&rdquo;
-                </p>
+                  <p className="text-sm font-medium text-text leading-relaxed">
+                    &ldquo;{selectedEscalationInfo?.notes || "Dispatched by field officer for urgent DGM statutory review."}&rdquo;
+                  </p>
 
-                <div className="text-[11px] text-text-muted flex items-center gap-2 pt-1 border-t border-amber-500/20">
-                  <span>Submitting Officer: <strong>{selectedEscalationInfo?.officer}</strong></span>
-                  <span>&middot;</span>
-                  <span>Primary Reason: <strong>{selectedEscalationInfo?.reason}</strong></span>
+                  <div className="text-[11px] text-text-muted flex items-center gap-2 pt-1 border-t border-amber-500/20">
+                    <span>Submitting Officer: <strong>{selectedEscalationInfo?.officer || "Field Officer"}</strong></span>
+                    <span>&middot;</span>
+                    <span>Primary Reason: <strong>{selectedEscalationInfo?.reason || "Needs DGM Review"}</strong></span>
+                  </div>
                 </div>
-              </div>
+              )}
+
 
               {/* Coordinates and Metric Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-border">

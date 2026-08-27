@@ -154,47 +154,7 @@ export function generateBrief(alertId: number, token: string) {
 }
 
 // Initial baseline mock audit logs to showcase history
-const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
-  {
-    id: 101,
-    alert_id: 1,
-    trigger_id: "MSS-D4D2AA",
-    location_name: "Bailadila AOI-07 — MSS-D4D2AA",
-    officer_id: 2,
-    officer_name: "Inspector R. Verma",
-    previous_status: "PENDING_OFFICER",
-    new_status: "ESCALATED_DGM",
-    action: "STATUS_UPDATED",
-    notes: "Suspected large-scale violation — excavation outside lease boundary detected via Sentinel-2 optical.",
-    timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
-  },
-  {
-    id: 102,
-    alert_id: 2,
-    trigger_id: "MSS-C1FF79",
-    location_name: "Bailadila AOI-07 — MSS-C1FF79",
-    officer_id: 2,
-    officer_name: "Inspector R. Verma",
-    previous_status: "PENDING_OFFICER",
-    new_status: "RESOLVED",
-    action: "STATUS_UPDATED",
-    notes: "Site is licensed / already known — verified against local DMG registry lease records.",
-    timestamp: new Date(Date.now() - 3600000 * 18).toISOString(),
-  },
-  {
-    id: 103,
-    alert_id: 3,
-    trigger_id: "MSS-07A189",
-    location_name: "Bailadila AOI-07 — MSS-07A189",
-    officer_id: 1,
-    officer_name: "HQ Officer A. Sharma",
-    previous_status: "PENDING_OFFICER",
-    new_status: "ESCALATED_DGM",
-    action: "STATUS_UPDATED",
-    notes: "Needs DGM review — high SAR backscatter change confirmed through monsoon cloud cover.",
-    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-  },
-];
+const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
 
 export function getLocalAuditLogs(): AuditLogEntry[] {
   if (typeof window === "undefined") return INITIAL_AUDIT_LOGS;

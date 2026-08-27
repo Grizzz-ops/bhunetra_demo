@@ -1,0 +1,19 @@
+# Detection -> scoring -> ingest pipeline dependencies (pipeline/*, db/*).
+#
+# Installed only in GitHub Actions on a fresh checkout, never on the API
+# hosts (Vercel/Railway) -- see the note in requirements.txt. Install with:
+#
+#   pip install -r requirements.txt -r requirements-pipeline.txt
+#
+# MineNetCD's torch/transformers stack is separate again: requirements-ml.txt.
+
+rasterio
+numpy
+opencv-python-headless
+geopandas
+scipy
+openeo
+python-dateutil
+matplotlib
+blackmarblepy
+scikit-learn

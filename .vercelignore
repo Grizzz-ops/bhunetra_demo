@@ -1,0 +1,18 @@
+# Nothing here is needed by the FastAPI web service (main.py). Keeping it
+# out of the deployment keeps the function bundle small and builds fast.
+frontend/
+pipeline/
+db/
+real_data/
+real_data_2026/
+real_data_bailadila/
+real_data_live/
+sample_data/
+output/
+*.diff
+*.csv
+*.geojson
+requirements-ml.txt
+requirements-pipeline.txt
+.github/
+README.md

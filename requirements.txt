@@ -1,24 +1,26 @@
-rasterio
-numpy
-opencv-python-headless
-geopandas
-shapely
-scipy
-openeo
-python-dateutil
-matplotlib
-requests
-python-dotenv
-blackmarblepy
+# FastAPI web service dependencies ONLY (main.py).
+#
+# This is what gets installed on the API hosts -- Vercel and Railway --
+# so it must stay lean: Vercel caps a serverless function bundle at 500MB
+# and the heavy geospatial stack (rasterio/geopandas/opencv/scipy/
+# scikit-learn/matplotlib) blew straight past that at ~836MB.
+#
+# The detection/scoring pipeline's own dependencies live in
+# requirements-pipeline.txt and are installed only in GitHub Actions
+# (see .github/workflows/). MineNetCD's torch stack is in
+# requirements-ml.txt. Keep those out of this file.
+
 fastapi
 uvicorn
-psycopg2-binary
-sqlalchemy
 pydantic
+sqlalchemy
+psycopg2-binary
 GeoAlchemy2
-apscheduler
+shapely
 python-jose
 passlib
 bcrypt==3.2.2
 python-multipart
-scikit-learn
+requests
+python-dotenv
+apscheduler

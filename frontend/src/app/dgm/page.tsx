@@ -63,6 +63,7 @@ export default function DgmDashboardPage() {
   const [noticeModalAlert, setNoticeModalAlert] = useState<AlertFeature | null>(null);
   const [actionNotes, setActionNotes] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -189,12 +190,15 @@ export default function DgmDashboardPage() {
   async function handleDgmAction(newStatus: AlertStatus, actionTitle: string) {
     if (!selectedAlert) return;
     setSubmittingAction(true);
+    setActionError(null);
     try {
       const fullNotes = actionNotes.trim()
         ? `[DGM Action: ${actionTitle}] ${actionNotes.trim()}`
         : `[DGM Action: ${actionTitle}] Statutory administrative order executed by Directorate HQ.`;
       await submitAction(selectedAlert.properties.id, newStatus, fullNotes);
       setActionNotes("");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Action failed. Try again.");
     } finally {
       setSubmittingAction(false);
     }
@@ -725,6 +729,10 @@ export default function DgmDashboardPage() {
                   <span>Close & Resolve Case</span>
                 </button>
               </div>
+
+              {actionError && (
+                <p className="text-xs font-medium text-red-500">{actionError}</p>
+              )}
             </div>
           </section>
         ) : (

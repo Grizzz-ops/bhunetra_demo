@@ -169,8 +169,8 @@ export function useDashboard() {
     try {
       const res = await api.getAuditLogs(token ?? "");
       setAuditLogs(res.audit_logs);
-    } catch {
-      setAuditLogs(api.getLocalAuditLogs());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't load audit history.");
     } finally {
       setAuditLoading(false);
     }
@@ -252,18 +252,8 @@ export function useDashboard() {
   }
 
   async function submitAction(alertId: number, newStatus: AlertStatus, notes: string) {
-    const alert = alertsById.get(alertId);
     patchAlert(alertId, { status: newStatus });
-    try {
-      await api.updateAlertAction(alertId, newStatus, notes, token ?? "", {
-        triggerId: alert?.properties.trigger_id,
-        locationName: alert?.properties.location_name,
-        officerName: session?.name,
-        previousStatus: alert?.properties.status,
-      });
-    } catch {
-      // ignore
-    }
+    await api.updateAlertAction(alertId, newStatus, notes, token ?? "");
     loadAuditLogs();
   }
 

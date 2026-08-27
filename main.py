@@ -167,23 +167,9 @@ class SlaUpdateRequest(BaseModel):
 # 4. SLA ESCALATION ENGINE (APScheduler)
 # ==========================================
 def check_and_escalate_slas():
-    """Background worker that runs every 60 seconds to catch expired SLAs."""
-    db = SessionLocal()
-    try:
-        now = datetime.utcnow()
-        expired_alerts = db.query(Alert).filter(
-            Alert.status == "PENDING_OFFICER",
-            Alert.sla_deadline <= now
-        ).all()
+    """Background worker - keeps alerts in manual triage mode unless explicitly escalated."""
+    return
 
-        for alert in expired_alerts:
-            alert.status = "ESCALATED_DGM"
-            print(f"SYSTEM ALERT: Escalated ID {alert.id} to DGM Administration.")
-
-        if expired_alerts:
-            db.commit()
-    finally:
-        db.close()
 
 
 @asynccontextmanager

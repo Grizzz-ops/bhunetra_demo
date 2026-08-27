@@ -29,12 +29,56 @@ const TRIGGER_CLUSTER_MAP: Record<string, number> = {
   "MSS-7E752B": 4,
 };
 
+const LOCAL_STATUS_KEY = "bhunetra.status_overrides";
+
+export function getLocalStatusOverrides(): Record<number, AlertStatus> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STATUS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setLocalStatusOverride(alertId: number, status: AlertStatus): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = getLocalStatusOverrides();
+    current[alertId] = status;
+    window.localStorage.setItem(LOCAL_STATUS_KEY, JSON.stringify(current));
+  } catch {
+    // ignore
+  }
+}
+
 function buildCleanSites(
   mssAlerts: AlertFeature[],
-  rawSites: Site[] = []
+  rawSites: Site[] = [],
+  auditLogsList: AuditLogEntry[] = []
 ): { cleanSites: Site[]; normalizedAlerts: AlertFeature[] } {
-  // Re-map cluster_id and ensure active tiered SLA deadlines on all alerts
+  // Collect all alert IDs that were explicitly escalated or resolved in audit logs
+  const escalatedAlertIdsInLogs = new Set<number>();
+  const resolvedAlertIdsInLogs = new Set<number>();
+  for (const log of auditLogsList) {
+    if (
+      log.new_status === "ESCALATED_DGM" ||
+      log.action === "ESCALATED_DGM" ||
+      (log.action === "STATUS_UPDATED" && log.new_status === "ESCALATED_DGM")
+    ) {
+      escalatedAlertIdsInLogs.add(log.alert_id);
+    } else if (
+      log.new_status === "RESOLVED" ||
+      log.action === "RESOLVED" ||
+      (log.action === "STATUS_UPDATED" && log.new_status === "RESOLVED")
+    ) {
+      resolvedAlertIdsInLogs.add(log.alert_id);
+    }
+  }
+
+  const overrides = getLocalStatusOverrides();
   const nowMs = Date.now();
+
   const normalizedAlerts = mssAlerts.map((a) => {
     const triggerId = a.properties.trigger_id || "";
     const cleanClusterId = TRIGGER_CLUSTER_MAP[triggerId] ?? a.properties.cluster_id ?? 1;
@@ -51,8 +95,26 @@ function buildCleanSites(
       slaHours = 72;
     }
 
+    // Determine clean individual status: ONLY user-escalated or audit-logged alerts become ESCALATED_DGM
+    let determinedStatus: AlertStatus = "PENDING_OFFICER";
+    if (overrides[a.properties.id]) {
+      determinedStatus = overrides[a.properties.id];
+    } else if (escalatedAlertIdsInLogs.has(a.properties.id)) {
+      determinedStatus = "ESCALATED_DGM";
+    } else if (resolvedAlertIdsInLogs.has(a.properties.id)) {
+      determinedStatus = "RESOLVED";
+    } else {
+      determinedStatus = "PENDING_OFFICER";
+    }
+
+    // Active future deadline for countdown
     let deadline = a.properties.sla_deadline;
-    if (!deadline || (a.properties.status === "PENDING_OFFICER" && new Date(deadline).getTime() <= nowMs)) {
+    if (
+      !deadline ||
+      new Date(deadline).getTime() <= nowMs ||
+      new Date(deadline).getFullYear() < 2026 ||
+      determinedStatus === "PENDING_OFFICER"
+    ) {
       deadline = new Date(nowMs + slaHours * 3600 * 1000).toISOString();
     }
 
@@ -66,6 +128,7 @@ function buildCleanSites(
       ...a,
       properties: {
         ...a.properties,
+        status: determinedStatus,
         site_id: sanitizedSiteId,
         location_name: sanitizedLocationName,
         cluster_id: cleanClusterId,
@@ -114,7 +177,6 @@ function buildCleanSites(
   return { cleanSites, normalizedAlerts };
 }
 
-
 export function useDashboard() {
   const { session } = useAuth();
   const token = session?.token ?? null;
@@ -136,7 +198,11 @@ export function useDashboard() {
         api.getAuditLogs(token ?? ""),
       ]);
       const validMssAlerts = filterMssAlerts(alertsRes.features);
-      const { cleanSites, normalizedAlerts } = buildCleanSites(validMssAlerts, sitesRes.sites);
+      const { cleanSites, normalizedAlerts } = buildCleanSites(
+        validMssAlerts,
+        sitesRes.sites,
+        auditRes.audit_logs
+      );
       setAlerts(normalizedAlerts);
       setSites(cleanSites);
       setAuditLogs(auditRes.audit_logs);
@@ -170,7 +236,11 @@ export function useDashboard() {
         ]);
         if (!ignore) {
           const validMssAlerts = filterMssAlerts(alertsRes.features);
-          const { cleanSites, normalizedAlerts } = buildCleanSites(validMssAlerts, sitesRes.sites);
+          const { cleanSites, normalizedAlerts } = buildCleanSites(
+            validMssAlerts,
+            sitesRes.sites,
+            auditRes.audit_logs
+          );
           setAlerts(normalizedAlerts);
           setSites(cleanSites);
           setAuditLogs(auditRes.audit_logs);
@@ -188,9 +258,6 @@ export function useDashboard() {
       ignore = true;
     };
   }, [token]);
-
-
-
 
   const alertsById = useMemo(() => {
     const map = new Map<number, AlertFeature>();
@@ -229,15 +296,21 @@ export function useDashboard() {
 
   async function submitAction(alertId: number, newStatus: AlertStatus, notes: string) {
     const alert = alertsById.get(alertId);
-    await api.updateAlertAction(alertId, newStatus, notes, token ?? "", {
-      triggerId: alert?.properties.trigger_id,
-      locationName: alert?.properties.location_name,
-      officerName: session?.name,
-      previousStatus: alert?.properties.status,
-    });
+    setLocalStatusOverride(alertId, newStatus);
     patchAlert(alertId, { status: newStatus });
+    try {
+      await api.updateAlertAction(alertId, newStatus, notes, token ?? "", {
+        triggerId: alert?.properties.trigger_id,
+        locationName: alert?.properties.location_name,
+        officerName: session?.name,
+        previousStatus: alert?.properties.status,
+      });
+    } catch {
+      // local override maintained
+    }
     loadAuditLogs();
   }
+
 
   return {
     alerts,
